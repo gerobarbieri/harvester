@@ -2,18 +2,18 @@ import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.tsx'
 import { BrowserRouter } from "react-router";
-import { AuthProvider } from './context/AuthContext.tsx';
-import { DataProvider } from './context/DataContext.tsx';
+import { AuthProvider } from './context/auth/AuthContext.tsx';
 import UpdateManager from './components/pwa/UpdateManager.tsx';
-
+import { SyncProvider } from './context/sync/SyncProvider.tsx';
 
 createRoot(document.getElementById('root')!).render(
   <AuthProvider>
-    <UpdateManager />
-    <DataProvider>
+    <SyncProvider>
+
+      <UpdateManager />
       <BrowserRouter>
         <App />
       </BrowserRouter>
-    </DataProvider>
+    </SyncProvider>
   </AuthProvider>
 )

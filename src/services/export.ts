@@ -2,42 +2,45 @@ import Papa from "papaparse";
 import * as xlsx from 'xlsx';
 import { format } from "date-fns";
 import { Timestamp } from "firebase/firestore";
-import type { Campaign, Field, HarvestPlotsWithDetails, Yield, HarvestPlotRecord } from "../types";
+import type { HarvestSession, HarvestSessionRegister } from "../types";
+import { typeNamesMap } from "../utils/constants";
 
 // Función auxiliar para no repetir código
-function prepareExportData(plot: HarvestPlotsWithDetails, records: HarvestPlotRecord[], yieldData: Yield, campaign: Campaign, field: Field) {
+function prepareExportData(session: HarvestSession, registers: HarvestSessionRegister[]) {
     const summaryData = [{
-        "Campaña": campaign?.name || '-',
-        "Campo": field?.name || '-',
-        "Cultivo": `${plot.cropName} ${plot.cropType}`,
-        "Lote": plot.plotName,
-        "Has. Sembradas": plot.hectares,
-        "Total Kilos": plot.harvested_kgs || 0,
-        "Rinde has. Cosechadas": yieldData.harvested.toFixed(2),
-        "Rinde has. Semb": yieldData.seed.toFixed(2),
+        "Campaña": session.campaign?.name || '-',
+        "Campo": session.field?.name || '-',
+        "Cultivo": session.crop.name,
+        "Lote": session.plot.name,
+        "Has. Sembradas": session.hectares,
+        "Total Kilos": session.harvested_kgs || 0,
+        "Rinde estimado": session.estimated_yield.toFixed(2) || 0,
+        "Rinde has. Cosechadas": session.yields.harvested.toFixed(2),
+        "Rinde has. Semb": session.yields.seed.toFixed(2),
+        "Rinde real vs estimado": session.yields.real_vs_projected.toFixed(2)
     }];
 
-    const recordsData = records.map(r => ({
+    const registersData = registers.map(r => ({
         "Fecha": r.created_at instanceof Timestamp ? format(r.created_at.toDate(), 'dd/MM/yyyy HH:mm') : '-',
-        "Tipo": r.type,
-        "Kilos": r.kg,
+        "Tipo": typeNamesMap[r.type],
+        "Kilos": r.weight_kg,
         "Humedad": r.humidity || '-',
-        "ID/Patente": r.type === 'camion' ? r.license_plate : r.silobag_name || '-',
-        "Chofer": r.type === 'camion' ? r.driver : '-',
-        "Destino": r.type === 'camion' ? r.destination : '-',
+        "ID/Patente": r.type === 'truck' ? r.license_plate : r.silobag_name || '-',
+        "Chofer": r.type === 'truck' ? r.driver : '-',
+        "Destino": r.type === 'truck' ? r.destination : '-',
         "Observaciones": r.details || '-'
     }));
 
-    const fileName = `Cosecha_${campaign?.name}_${field?.name}_${plot.plotName}`.replace(/ /g, '_');
+    const fileName = `Cosecha_${session.campaign?.name}_${session.field?.name}_${session.plot.name}`.replace(/ /g, '_');
 
-    return { summaryData, recordsData, fileName };
+    return { summaryData, registersData, fileName };
 }
 
-export const exportToCsv = (plot: HarvestPlotsWithDetails, records: HarvestPlotRecord[], yieldData: Yield, campaign: Campaign, field: Field) => {
-    const { summaryData, recordsData, fileName } = prepareExportData(plot, records, yieldData, campaign, field);
+export const exportToCsv = (session: HarvestSession, registers: HarvestSessionRegister[],) => {
+    const { summaryData, registersData, fileName } = prepareExportData(session, registers);
     const summaryCsv = Papa.unparse(summaryData);
-    const recordsCsv = Papa.unparse(recordsData);
-    const finalCsv = `${summaryCsv}\n\n${recordsCsv}`;
+    const registersCsv = Papa.unparse(registersData);
+    const finalCsv = `${summaryCsv}\n\n${registersCsv}`;
 
     const blob = new Blob([finalCsv], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement("a");
@@ -50,10 +53,10 @@ export const exportToCsv = (plot: HarvestPlotsWithDetails, records: HarvestPlotR
     document.body.removeChild(link);
 };
 
-export const exportToXlsx = (plot: HarvestPlotsWithDetails, records: HarvestPlotRecord[], yieldData: Yield, campaign: Campaign, field: Field) => {
-    const { summaryData, recordsData, fileName } = prepareExportData(plot, records, yieldData, campaign, field);
+export const exportToXlsx = (session: HarvestSession, registers: HarvestSessionRegister[]) => {
+    const { summaryData, registersData, fileName } = prepareExportData(session, registers);
     const summaryWorksheet = xlsx.utils.json_to_sheet(summaryData);
-    const recordsWorksheet = xlsx.utils.json_to_sheet(recordsData);
+    const recordsWorksheet = xlsx.utils.json_to_sheet(registersData);
     const workbook = xlsx.utils.book_new();
     xlsx.utils.book_append_sheet(workbook, summaryWorksheet, "Resumen");
     xlsx.utils.book_append_sheet(workbook, recordsWorksheet, "Registros");

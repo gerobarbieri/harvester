@@ -1,47 +1,35 @@
-
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
 import { useRegisterSW } from 'virtual:pwa-register/react';
+import { useSync } from '../../context/sync/SyncProvider';
 
 function UpdateManager() {
-    const [registration, setRegistration] = useState(null);
-
+    const { triggerSync } = useSync();
     const {
         needRefresh: [needRefresh],
         updateServiceWorker,
     } = useRegisterSW({
         onRegistered(r) {
-            setRegistration(r);
+            console.log('Service Worker registered. Checking for updates and data...');
+            r?.update();
+            triggerSync();
         },
     });
 
-    // EFECTO 1: Comprobación periódica cada hora
     useEffect(() => {
-        if (registration) {
-            const interval = setInterval(() => {
-                console.log('Buscando nueva versión (intervalo)...');
-                registration.update();
-            }, 3600 * 1000);
-
-            return () => clearInterval(interval);
-        }
-    }, [registration]);
-
-    useEffect(() => {
-        const handleVisibilityChange = () => {
-            if (document.visibilityState === 'visible') {
-                console.log('Buscando nueva versión (visibilidad)...');
-                registration?.update();
+        const handleActivity = () => {
+            if (document.visibilityState === 'visible' && navigator.onLine) {
+                console.log('App is visible and online. Triggering sync...');
+                triggerSync();
             }
         };
+        document.addEventListener('visibilitychange', handleActivity);
+        window.addEventListener('online', handleActivity);
 
-        if (registration) {
-            document.addEventListener('visibilitychange', handleVisibilityChange);
-
-            return () => {
-                document.removeEventListener('visibilitychange', handleVisibilityChange);
-            };
-        }
-    }, [registration]);
+        return () => {
+            document.removeEventListener('visibilitychange', handleActivity);
+            window.removeEventListener('online', handleActivity);
+        };
+    }, [triggerSync]);
 
     if (needRefresh) {
         return (
