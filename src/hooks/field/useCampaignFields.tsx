@@ -13,13 +13,7 @@ export const useCampaignFields = (campaignId: string) => {
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
-        // Guarda de seguridad inicial
-        if (authLoading || !currentUser || !campaignId) {
-            if (!authLoading) setLoading(false);
-            return;
-        }
-
-        setLoading(true);
+        if (authLoading || !currentUser || !campaignId) return;
 
         // Lógica para Admin/Owner (una sola consulta y un solo listener)
         if (currentUser.role === 'admin' || currentUser.role === 'owner') {

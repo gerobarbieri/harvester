@@ -59,7 +59,7 @@ export interface HarvestSession {
     plot: Partial<Plot>;
     field: Partial<Field>;
     crop: Partial<Crop>;
-    harvesters: Partial<Harvesters[]>;
+    harvesters: Partial<Harvester[]>;
     status: HarvestStatus;
     hectares: number;
     estimated_yield: number;
@@ -80,6 +80,12 @@ export interface Crop {
     name: string;
     type: string;
 }
+
+export interface Silobag {
+    id: string;
+    name: string;
+    created_at?: string;
+}
 export interface HarvestSessionRegister {
     id: string;
     organization_id: string;
@@ -91,6 +97,7 @@ export interface HarvestSessionRegister {
     silobag_name?: string;
     humidity: number;
     details?: string;
+    silo_bag?: Silobag
     created_at: FieldValue | Timestamp;
     updated_at?: FieldValue | Timestamp;
 }
