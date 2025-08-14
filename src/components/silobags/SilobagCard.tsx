@@ -12,7 +12,7 @@ const SiloBagCard = ({ silo, onExtract, onClose }) => {
                 <div className="flex justify-between items-start">
                     <div>
                         <h3 className="font-bold text-lg text-text-primary">{silo.name}</h3>
-                        {/* <p className="text-sm text-text-secondary">{silo.crop} - {silo.created_at}</p> */}
+                        <p className="text-sm text-text-secondary">{silo.crop.name} - {silo.created_at}</p>
                     </div>
                     {isClosed && <span className="px-3 py-1 text-xs font-bold text-red-800 bg-red-100 rounded-full">CERRADO</span>}
                 </div>
