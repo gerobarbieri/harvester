@@ -343,7 +343,10 @@ export const RegistersTab: FC = () => {
                 silobagData = {
                     id: newSiloBagRef.id,
                     name: data.newSiloBagName,
-                    crop: harvestSession.crop.name,
+                    crop: {
+                        id: harvestSession.crop.id,
+                        name: harvestSession.crop.name
+                    },
                     initial_kg: parseFloat(data.weight_kg),
                     location: data.location,
                     organization_id: currentUser.organizationId,
