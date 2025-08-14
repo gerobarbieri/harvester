@@ -111,36 +111,36 @@ export const SyncProvider = ({ children }: { children: ReactNode }) => {
     }, []);
 
     // ✅ Sync inicial mejorado
-    useEffect(() => {
-        if (currentUser && !lastSync && !isSyncing) {
-            console.log('🎯 Primera sincronización para usuario logueado');
-            triggerSync();
-        }
-    }, [currentUser, lastSync, triggerSync]); // ✅ Quitado isSyncing de dependencias
+    // useEffect(() => {
+    //     if (currentUser && !lastSync && !isSyncing) {
+    //         console.log('🎯 Primera sincronización para usuario logueado');
+    //         triggerSync();
+    //     }
+    // }, [currentUser, lastSync, triggerSync]); // ✅ Quitado isSyncing de dependencias
 
-    // ✅ Sync cuando vuelve la conexión
-    useEffect(() => {
-        const handleOnline = () => {
-            if (currentUser && !isSyncing) {
-                console.log('🌐 Conexión restaurada, sincronizando...');
-                triggerSync();
-            }
-        };
+    // // ✅ Sync cuando vuelve la conexión
+    // useEffect(() => {
+    //     const handleOnline = () => {
+    //         if (currentUser && !isSyncing) {
+    //             console.log('🌐 Conexión restaurada, sincronizando...');
+    //             triggerSync();
+    //         }
+    //     };
 
-        window.addEventListener('online', handleOnline);
-        return () => window.removeEventListener('online', handleOnline);
-    }, [currentUser, triggerSync]); // ✅ Sin isSyncing
+    //     window.addEventListener('online', handleOnline);
+    //     return () => window.removeEventListener('online', handleOnline);
+    // }, [currentUser, triggerSync]); // ✅ Sin isSyncing
 
-    // ✅ Cleanup cuando el usuario se desloguea
-    useEffect(() => {
-        if (!currentUser) {
-            setLastSync(null);
-            setSyncError(null);
-            setSyncMetrics(null);
-            lastSyncAttempt.current = 0;
-            console.log('🧹 Sync state limpiado por logout');
-        }
-    }, [currentUser]);
+    // // ✅ Cleanup cuando el usuario se desloguea
+    // useEffect(() => {
+    //     if (!currentUser) {
+    //         setLastSync(null);
+    //         setSyncError(null);
+    //         setSyncMetrics(null);
+    //         lastSyncAttempt.current = 0;
+    //         console.log('🧹 Sync state limpiado por logout');
+    //     }
+    // }, [currentUser]);
 
     const value = {
         isSyncing,

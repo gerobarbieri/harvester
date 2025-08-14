@@ -1,59 +1,134 @@
-import { createContext, useState } from "react";
-import { useToast } from "./ToastProvider";
+// src/providers/DndProvider.tsx
+import React, { createContext, useState, useContext, type ReactNode } from 'react';
 
-export const DndContext = createContext({});
-const DndProvider = ({ children, initialTasks, columns }) => {
-    const [tasks, setTasks] = useState(initialTasks);
-    const [draggedItem, setDraggedItem] = useState(null);
-    const [sourceColumnId, setSourceColumnId] = useState(null);
-    const [dropTargetId, setDropTargetId] = useState(null);
+interface Task {
+    id: string;
+    orden: string;
+    fecha: string;
+    campo: string;
+    cultivo: string;
+    chofer: string;
+    empresa: string;
+    columnId: string;
+}
+
+interface Column {
+    id: string;
+    title: string;
+}
+
+interface DndContextType {
+    tasks: Record<string, Task[]>;
+    setTasks: React.Dispatch<React.SetStateAction<Record<string, Task[]>>>;
+    draggedItem: Task | null;
+    setDraggedItem: React.Dispatch<React.SetStateAction<Task | null>>;
+    dropTargetId: string | null;
+    setDropTargetId: React.Dispatch<React.SetStateAction<string | null>>;
+    isLoading: boolean;
+    setIsLoading: React.Dispatch<React.SetStateAction<boolean>>;
+    handleDragStart: (task: Task, sourceColumnId: string) => void;
+    handleDragEnter: (targetColumnId: string) => void;
+    handleDragEnd: () => void;
+}
+
+const DndContext = createContext<DndContextType | undefined>(undefined);
+
+interface DndProviderProps {
+    children: ReactNode;
+    initialTasks: Record<string, Task[]>;
+    columns: Column[];
+}
+
+const DndProvider: React.FC<DndProviderProps> = ({ children, initialTasks, columns }) => {
+    const [tasks, setTasks] = useState<Record<string, Task[]>>(initialTasks);
+    const [draggedItem, setDraggedItem] = useState<Task | null>(null);
+    const [dropTargetId, setDropTargetId] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(false);
 
-    const showToast = useToast();
-
-    const handleDragStart = (task, colId) => {
-        setDraggedItem(task);
-        setSourceColumnId(colId);
+    const handleDragStart = (task: Task, sourceColumnId: string) => {
+        setDraggedItem({ ...task, columnId: sourceColumnId });
     };
 
-    const handleDragEnter = (colId) => {
-        setDropTargetId(colId);
+    const handleDragEnter = (targetColumnId: string) => {
+        setDropTargetId(targetColumnId);
     };
 
     const handleDragEnd = async () => {
-        if (draggedItem && sourceColumnId && dropTargetId && sourceColumnId !== dropTargetId) {
-            setIsLoading(true);
+        if (!draggedItem || !dropTargetId || draggedItem.columnId === dropTargetId) {
+            setDraggedItem(null);
+            setDropTargetId(null);
+            return;
+        }
+
+        setIsLoading(true);
+
+        try {
+            // Simular delay de API
             await new Promise(resolve => setTimeout(resolve, 500));
-            setTasks(prev => {
-                const newTasks = { ...prev };
-                newTasks[sourceColumnId] = newTasks[sourceColumnId].filter(t => t.id !== draggedItem.id);
-                newTasks[dropTargetId] = [...newTasks[dropTargetId], { ...draggedItem, columnId: dropTargetId }];
+
+            // Actualizar las tareas
+            setTasks(prevTasks => {
+                const newTasks = { ...prevTasks };
+
+                // Remover de la columna origen
+                newTasks[draggedItem.columnId] = newTasks[draggedItem.columnId]?.filter(
+                    task => task.id !== draggedItem.id
+                ) || [];
+
+                // Agregar a la columna destino
+                if (!newTasks[dropTargetId]) {
+                    newTasks[dropTargetId] = [];
+                }
+
+                newTasks[dropTargetId] = [
+                    ...newTasks[dropTargetId],
+                    { ...draggedItem, columnId: dropTargetId }
+                ];
+
                 return newTasks;
             });
-            // showToast(`Tarea ${draggedItem.orden} movida a ${columns.find(col => col.id === dropTargetId)?.title}`, 'success');
+
+            // TODO: Aquí iría la llamada a la API para actualizar el estado en la base de datos
+            console.log(`Moviendo tarea ${draggedItem.id} de ${draggedItem.columnId} a ${dropTargetId}`);
+
+        } catch (error) {
+            console.error('Error al mover tarea:', error);
+            // TODO: Mostrar mensaje de error al usuario
+        } finally {
             setIsLoading(false);
+            setDraggedItem(null);
+            setDropTargetId(null);
         }
-        setDraggedItem(null);
-        setSourceColumnId(null);
-        setDropTargetId(null);
     };
 
-    const moveTaskToColumn = async (task, newColumnId) => {
-        if (task.columnId === newColumnId) return;
-        setIsLoading(true);
-        await new Promise(resolve => setTimeout(resolve, 500));
-        setTasks(prev => {
-            const newTasks = { ...prev };
-            newTasks[task.columnId] = newTasks[task.columnId].filter(t => t.id !== task.id);
-            newTasks[newColumnId] = [...newTasks[newColumnId], { ...task, columnId: newColumnId }];
-            return newTasks;
-        });
-        // showToast(`Tarea ${task.orden} movida a ${columns.find(col => col.id === newColumnId)?.title}`, 'success');
-        setIsLoading(false);
+    const value: DndContextType = {
+        tasks,
+        setTasks,
+        draggedItem,
+        setDraggedItem,
+        dropTargetId,
+        setDropTargetId,
+        isLoading,
+        setIsLoading,
+        handleDragStart,
+        handleDragEnter,
+        handleDragEnd
     };
 
-    const value = { tasks, draggedItem, dropTargetId, handleDragStart, handleDragEnter, handleDragEnd, moveTaskToColumn, isLoading };
-    return <DndContext.Provider value={value}>{children}</DndContext.Provider>;
+    return (
+        <DndContext.Provider value={value}>
+            {children}
+        </DndContext.Provider>
+    );
 };
 
+export const useDndContext = (): DndContextType => {
+    const context = useContext(DndContext);
+    if (!context) {
+        throw new Error('useDndContext must be used within a DndProvider');
+    }
+    return context;
+};
+
+export { DndContext };
 export default DndProvider;

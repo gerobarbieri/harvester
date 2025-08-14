@@ -25,9 +25,10 @@ function prepareExportData(session: HarvestSession, registers: HarvestSessionReg
         "Tipo": typeNamesMap[r.type],
         "Kilos": r.weight_kg,
         "Humedad": r.humidity || '-',
-        "ID/Patente": r.type === 'truck' ? r.license_plate : r.silobag_name || '-',
-        "Chofer": r.type === 'truck' ? r.driver : '-',
-        "Destino": r.type === 'truck' ? r.destination : '-',
+        "ID/Patente": r.type === 'truck' ? r.truck.license_plate : r.silo_bag.name || '-',
+        "Chofer": r.type === 'truck' ? r.truck.driver : '-',
+        "Destino": r.type === 'truck' ? r.destination.name : '-',
+        "Ubicacion": r.type === 'silo_bag' ? r.silo_bag.location : '-',
         "Observaciones": r.details || '-'
     }));
 

@@ -11,7 +11,7 @@ function UpdateManager() {
         onRegistered(r) {
             console.log('Service Worker registered. Checking for updates and data...');
             r?.update();
-            triggerSync();
+            // triggerSync();
         },
     });
 
@@ -19,7 +19,7 @@ function UpdateManager() {
         const handleActivity = () => {
             if (document.visibilityState === 'visible' && navigator.onLine) {
                 console.log('App is visible and online. Triggering sync...');
-                triggerSync();
+                // triggerSync();
             }
         };
         document.addEventListener('visibilitychange', handleActivity);

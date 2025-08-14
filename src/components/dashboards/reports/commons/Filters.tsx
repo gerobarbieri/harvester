@@ -25,7 +25,6 @@ const Filters: FC<FiltersProps> = ({
     handleFilterChange
 }) => (
     <Card>
-        <h2 className="text-lg font-bold text-text-primary mb-4">Filtros</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <Select
                 label="Campaña"

@@ -1,8 +1,8 @@
+// src/pages/dashboards/Reports.tsx
 import { Link, Outlet, useMatch, useNavigate, useOutletContext } from "react-router";
 import PageHeader from "../../components/commons/layout/PageHeader";
 import { Weight, Leaf, Tractor, Award, PieChart } from "lucide-react";
 import { type FC, useState, useEffect, useMemo } from "react";
-import type { Field } from "react-hook-form";
 import Card from "../../components/commons/Card";
 import Select from "../../components/commons/form/Select";
 import StatCard from "../../components/dashboards/commons/StatCard";
@@ -10,16 +10,16 @@ import DestinationChart from "../../components/dashboards/reports/destinations-r
 import YieldPerformanceCard from "../../components/dashboards/reports/harvest-report/ui/YieldPerformanceCard";
 import { useCampaigns } from "../../hooks/campaign/useCampaigns";
 import { useHarvestSessionsByCampaign } from "../../hooks/harvest-session/useHarvestSessionsByCampaign";
-import type { Campaign, Crop, Plot } from "../../types";
+import { useReportsAnalytics } from "../../hooks/analytics-reports/useReportsAnalytics";
+import type { Campaign, Crop, Plot, Field } from "../../types";
 
 interface FiltersProps {
     campaigns: Campaign[];
     campaignsLoading: boolean;
     filters: { campaign: string; crop: string; field: string; plot: string; };
-    availableCrops: Crop[];
-    availableFields: Field[];
-    availablePlots: Plot[];
-    sessionsLoading: boolean;
+    availableCrops: Partial<Crop>[];
+    availableFields: Partial<Field>[];
+    availablePlots: Partial<Plot>[];
     handleFilterChange: (filterName: string, value: string) => void;
 }
 
@@ -30,12 +30,10 @@ const Filters: FC<FiltersProps> = ({
     availableCrops,
     availableFields,
     availablePlots,
-    sessionsLoading,
     handleFilterChange
 }) => (
     <Card>
-        <h2 className="text-lg font-bold text-text-primary mb-4">Filtros</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             <Select
                 label="Campaña"
                 items={campaigns}
@@ -49,19 +47,19 @@ const Filters: FC<FiltersProps> = ({
                 label="Cultivo"
                 items={availableCrops}
                 name="crop"
-                placeholder="Todos los cultivos"
+                placeholder="Todos"
                 value={filters.crop}
                 onChange={(e) => handleFilterChange('crop', e.target.value)}
-                disabled={!filters.campaign || sessionsLoading}
+                disabled={!filters.campaign}
             />
             <Select
                 label="Campo"
                 items={availableFields}
                 name="field"
-                placeholder="Todos los campos"
+                placeholder="Todos"
                 value={filters.field}
                 onChange={(e) => handleFilterChange('field', e.target.value)}
-                disabled={!filters.campaign || sessionsLoading}
+                disabled={!filters.campaign}
             />
             <Select
                 label="Lote"
@@ -70,19 +68,25 @@ const Filters: FC<FiltersProps> = ({
                 placeholder="Todos los lotes"
                 value={filters.plot}
                 onChange={(e) => handleFilterChange('plot', e.target.value)}
-                disabled={!filters.campaign || sessionsLoading}
+                disabled={!filters.campaign}
             />
         </div>
     </Card>
 );
 
 export const HarvestSection: FC = () => {
-    const { analytics, sessionsLoading } = useOutletContext<any>(); // Obtener del contexto
+    const { analytics } = useOutletContext<any>();
 
-    const avanceCosecha = analytics.hectareasTotales > 0 ? (analytics.hectareasCosechadas / analytics.hectareasTotales) * 100 : 0;
+    const harvestProgress = analytics?.harvestSummary?.total_hectares > 0
+        ? (analytics?.harvestSummary?.total_harvested_hectares / analytics?.harvestSummary?.total_hectares) * 100
+        : 0;
 
-    if (sessionsLoading) {
+    if (analytics.loading) {
         return <p className="text-center text-text-secondary py-8">Calculando datos de cosecha...</p>;
+    }
+
+    if (analytics.error) {
+        return <p className="text-center text-red-500 py-8">Error: {analytics.error}</p>;
     }
 
     return (
@@ -90,33 +94,58 @@ export const HarvestSection: FC = () => {
             <div className="flex flex-col lg:flex-row gap-4 lg:gap-6">
                 <Card className="flex-1">
                     <h3 className="text-lg font-semibold text-text-primary mb-2">Avance de Cosecha</h3>
-                    <div className="text-3xl font-bold text-text-primary mb-4">{avanceCosecha.toFixed(1)}%</div>
+                    <div className="text-3xl font-bold text-text-primary mb-4">{harvestProgress.toFixed(1)}%</div>
                     <div className="w-full bg-background rounded-full h-3 mb-2">
                         <div
                             className="bg-primary h-3 rounded-full transition-all duration-500"
-                            style={{ width: `${avanceCosecha}%` }}
+                            style={{ width: `${harvestProgress}%` }}
                         ></div>
                     </div>
                     <p className="text-text-secondary text-sm">
-                        {analytics.hectareasCosechadas.toLocaleString('es-AR')} ha / {analytics.hectareasTotales.toLocaleString('es-AR')} ha
+                        {analytics.harvestSummary?.total_harvested_hectares?.toLocaleString('es-AR')} ha / {analytics?.harvestSummary?.total_hectares?.toLocaleString('es-AR')} ha
                     </p>
                 </Card>
-                <YieldPerformanceCard actual={analytics.rindeCosechado} estimated={analytics.rindeEstimado} />
+                <YieldPerformanceCard
+                    real={analytics?.harvestSummary?.yield_per_harvested_hectare || 0}
+                    estimated={analytics?.harvestSummary?.average_estimated_yield || 0}
+                />
             </div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 lg:gap-6">
-                <StatCard title="Kg Cosechados" value={(analytics.kgCosechados / 1000).toLocaleString('es-AR', { maximumFractionDigits: 0 })} unit="tn" icon={<Weight className="w-5 h-5" />} color="orange" />
-                <StatCard title="Rinde Sembrado" value={analytics.rindeSembrado.toLocaleString('es-AR', { maximumFractionDigits: 0 })} unit="kg/ha" icon={<Leaf className="w-5 h-5" />} color="blue" />
-                <StatCard title="Rinde Cosechado" value={analytics.rindeCosechado.toLocaleString('es-AR', { maximumFractionDigits: 0 })} unit="kg/ha" icon={<Tractor className="w-5 h-5" />} color="green" />
+                <StatCard
+                    title="Kg Cosechados"
+                    value={(analytics?.harvestSummary?.total_kgs && analytics?.harvestSummary?.total_kgs / 1000)?.toLocaleString('es-AR', { maximumFractionDigits: 0 }) || 0}
+                    unit="tn"
+                    icon={Weight}
+                    color="orange"
+                />
+                <StatCard
+                    title="Rinde Sembrado"
+                    value={analytics?.harvestSummary?.yield_per_sown_hectare?.toLocaleString('es-AR', { maximumFractionDigits: 0 }) || 0}
+                    unit="kg/ha"
+                    icon={Leaf}
+                    color="blue"
+                />
+                <StatCard
+                    title="Rinde Cosechado"
+                    value={analytics?.harvestSummary?.yield_per_harvested_hectare?.toLocaleString('es-AR', { maximumFractionDigits: 0 }) || 0}
+                    unit="kg/ha"
+                    icon={Tractor}
+                    color="green"
+                />
             </div>
         </div>
     );
 };
 
 export const HarvestersSection: FC = () => {
-    const { analytics, sessionsLoading } = useOutletContext<any>(); // Obtener del contexto
+    const { analytics } = useOutletContext<any>();
 
-    if (sessionsLoading) {
+    if (analytics.loading) {
         return <p className="text-center text-text-secondary py-8">Cargando datos de cosecheros...</p>;
+    }
+
+    if (analytics.error) {
+        return <p className="text-center text-red-500 py-8">Error: {analytics.error}</p>;
     }
 
     return (
@@ -126,14 +155,14 @@ export const HarvestersSection: FC = () => {
                 <h3 className="text-lg font-semibold text-text-primary">Ranking de Cosecheros</h3>
             </div>
             <div className="space-y-4">
-                {analytics.harvesterData.length > 0 ? (
-                    analytics.harvesterData.map((h: any, i: number) => (
+                {analytics.harvestersSummary.length > 0 ? (
+                    analytics.harvestersSummary.map((h: any, i: number) => (
                         <div key={h.id} className="flex justify-between items-center py-3 border-b border-gray-100 last:border-b-0">
                             <div className="flex items-center space-x-3">
                                 <span className="text-text-secondary font-semibold text-sm w-6">#{i + 1}</span>
-                                <span className="font-medium text-text-primary">{h.name}</span>
+                                <span className="font-medium text-text-primary">{h.harvester.name}</span>
                             </div>
-                            <span className="font-bold text-text-primary">{h.rinde.toFixed(0)} kg/ha</span>
+                            <span className="font-bold text-text-primary">{h.average_yield_kg_ha.toFixed(0)} kg/ha</span>
                         </div>
                     ))
                 ) : (
@@ -145,10 +174,14 @@ export const HarvestersSection: FC = () => {
 };
 
 export const DestinationsSection: FC = () => {
-    const { analytics, sessionsLoading } = useOutletContext<any>(); // Obtener del contexto
+    const { analytics } = useOutletContext<any>();
 
-    if (sessionsLoading) {
+    if (analytics.loading) {
         return <p className="text-center text-text-secondary py-8">Cargando datos de destinos...</p>;
+    }
+
+    if (analytics.error) {
+        return <p className="text-center text-red-500 py-8">Error: {analytics.error}</p>;
     }
 
     return (
@@ -157,7 +190,7 @@ export const DestinationsSection: FC = () => {
                 <PieChart className="w-5 h-5 text-text-secondary" />
                 <h3 className="text-lg font-semibold text-text-primary">Entregas por Destino</h3>
             </div>
-            {analytics.destinationData.length > 0 ? (
+            {analytics.destinationSummary.length > 0 ? (
                 <div className="flex justify-center">
                     <DestinationChart data={analytics.destinationData} />
                 </div>
@@ -168,10 +201,8 @@ export const DestinationsSection: FC = () => {
     );
 };
 
-
-// --- Componente principal Reports (anteriormente Dashboard) ---
+// --- Componente principal Reports ---
 const Reports: FC = () => {
-    // --- ESTADOS DE LOS FILTROS ---
     const [filters, setFilters] = useState({
         campaign: '',
         crop: 'todos',
@@ -179,14 +210,11 @@ const Reports: FC = () => {
         plot: 'todos',
     });
 
-    // --- OBTENCIÓN DE DATOS ---
     const { campaigns, loading: campaignsLoading } = useCampaigns();
-    const { sessions: sessionsForCampaign, loading: sessionsLoading } = useHarvestSessionsByCampaign(filters.campaign);
+    const { sessions: sessionsForCampaign } = useHarvestSessionsByCampaign(filters.campaign);
     const navigate = useNavigate();
 
-    // --- LÓGICA DE FILTROS Y CÁLCULOS (usando useMemo para optimizar) ---
-
-    // Reinicia los filtros de cultivo, campo y lote cuando cambia la campaña
+    // Reinicia los filtros cuando cambia la campaña
     useEffect(() => {
         setFilters(prev => ({
             ...prev,
@@ -196,14 +224,23 @@ const Reports: FC = () => {
         }));
     }, [filters.campaign]);
 
-    // Opciones para el desplegable de Cultivos (se generan a partir de las sesiones)
+    // Establecer primera campaña por defecto
+    useEffect(() => {
+        if (campaigns.length > 0 && !filters.campaign) {
+            setFilters(prev => ({
+                ...prev,
+                campaign: campaigns[0].id
+            }));
+        }
+    }, [campaigns, filters.campaign]);
+
+    // Opciones para los filtros (obtenidas de las sesiones para mantener consistencia)
     const availableCrops = useMemo(() => {
         if (!sessionsForCampaign) return [];
         const uniqueCrops = new Map(sessionsForCampaign.map(s => [s.crop.id, s.crop]));
         return Array.from(uniqueCrops.values());
     }, [sessionsForCampaign]);
 
-    // Opciones para el desplegable de Campos
     const availableFields = useMemo(() => {
         if (!sessionsForCampaign) return [];
         let filteredByCrop = sessionsForCampaign;
@@ -214,7 +251,6 @@ const Reports: FC = () => {
         return Array.from(uniqueFields.values());
     }, [sessionsForCampaign, filters.crop]);
 
-    // Opciones para el desplegable de Lotes
     const availablePlots = useMemo(() => {
         if (!sessionsForCampaign) return [];
         let filteredByField = sessionsForCampaign;
@@ -225,100 +261,35 @@ const Reports: FC = () => {
         return Array.from(uniquePlots.values());
     }, [sessionsForCampaign, filters.field]);
 
-    // Datos finales para las tarjetas, después de aplicar todos los filtros
-    const dashboardData = useMemo(() => {
-        const initialTotals = { seed_hectares: 0, harvested_hectares: 0, harvested_kgs: 0 };
-        if (!sessionsForCampaign) return initialTotals;
-
-        const filteredSessions = sessionsForCampaign.filter(s => {
-            const cropMatch = filters.crop === 'todos' || s.crop.id === filters.crop;
-            const fieldMatch = filters.field === 'todos' || s.field.id === filters.field;
-            const plotMatch = filters.plot === 'todos' || s.plot.id === filters.plot;
-            return cropMatch && fieldMatch && plotMatch;
-        });
-
-        return filteredSessions.reduce((acc, session) => {
-            acc.seed_hectares += session.hectares || 0;
-            acc.harvested_hectares += session.harvested_hectares || 0;
-            acc.harvested_kgs += session.harvested_kgs || 0;
-            return acc;
-        }, initialTotals);
-    }, [sessionsForCampaign, filters.crop, filters.field, filters.plot]);
-
-    // --- CÁLCULOS FINALES PARA LA UI ---
-    const rindeSembrado = dashboardData.seed_hectares > 0 ? (dashboardData.harvested_kgs / dashboardData.seed_hectares) : 0;
-    const rindeCosechado = dashboardData.harvested_hectares > 0 ? (dashboardData.harvested_kgs / dashboardData.harvested_hectares) : 0;
-
-    // --- Datos para las nuevas secciones (cosecheros, destinos, rinde estimado) ---
-    const analytics = useMemo(() => {
-        const harvested_kgs = dashboardData.harvested_kgs;
-
-        // Mock de rinde estimado (puedes ajustarlo o calcularlo de forma más inteligente)
-        const rindeEstimado = rindeCosechado > 0 ? rindeCosechado * 1.05 : 3000;
-
-        // Agrupación de datos por cosechador
-        const harvesterMap = new Map<string, { id: string; name: string; harvested_kgs: number; harvested_hectares: number }>();
-        sessionsForCampaign?.forEach(session => {
-            if (session.harvester) {
-                const current = harvesterMap.get(session.harvester.id) || { id: session.harvester.id, name: session.harvester.name, harvested_kgs: 0, harvested_hectares: 0 };
-                current.harvested_kgs += session.harvested_kgs || 0;
-                current.harvested_hectares += session.harvested_hectares || 0;
-                harvesterMap.set(session.harvester.id, current);
-            }
-        });
-        const harvesterData = Array.from(harvesterMap.values()).map(h => ({
-            id: h.id,
-            name: h.name,
-            rinde: h.harvested_hectares > 0 ? (h.harvested_kgs / h.harvested_hectares) : 0,
-        })).sort((a, b) => b.rinde - a.rinde);
-
-        // Agrupación de datos por destino
-        const destinationMap = new Map<string, { id: string; name: string; value: number }>();
-        sessionsForCampaign?.forEach(session => {
-            if (session.destination) {
-                const current = destinationMap.get(session.destination.id) || { id: session.destination.id, name: session.destination.name, value: 0 };
-                current.value += session.destination.value || 0;
-                destinationMap.set(session.destination.id, current);
-            }
-        });
-        const destinationData = Array.from(destinationMap.values());
-
-        return {
-            hectareasTotales: dashboardData.seed_hectares,
-            hectareasCosechadas: dashboardData.harvested_hectares,
-            kgCosechados: harvested_kgs,
-            rindeSembrado: rindeSembrado,
-            rindeCosechado: rindeCosechado,
-            rindeEstimado: rindeEstimado,
-            harvesterData: harvesterData,
-            destinationData: destinationData,
-        };
-    }, [dashboardData, rindeCosechado, sessionsForCampaign]);
-
+    // Analytics usando el hook optimizado con resúmenes agregados
+    const analytics = useReportsAnalytics(filters.campaign, {
+        crop: filters.crop,
+        field: filters.field,
+        plot: filters.plot
+    });
 
     const handleFilterChange = (filterName: string, value: string) => {
         setFilters(prev => ({ ...prev, [filterName]: value }));
     };
 
     // Determinar la pestaña activa basándose en la URL
-    const matchCosecha = useMatch('/reports/cosecha');
-    const matchCosecheros = useMatch('/reports/cosecheros');
-    const matchDestinos = useMatch('/reports/destinos');
+    const matchHarvests = useMatch('/reports/harvests');
+    const matchHarvesters = useMatch('/reports/harvesters');
+    const matchDestinations = useMatch('/reports/destinations');
 
     const activeTab = useMemo(() => {
-        if (matchCosecheros) return 'cosecheros';
-        if (matchDestinos) return 'destinos';
-        return 'cosecha'; // Default tab
-    }, [matchCosecha, matchCosecheros, matchDestinos]);
+        if (matchHarvesters) return 'harvesters';
+        if (matchDestinations) return 'destinations';
+        return 'harvests';
+    }, [matchHarvests, matchHarvesters, matchDestinations]);
 
     // Redirige a la pestaña por defecto si se accede a la ruta base sin sub-ruta
     useEffect(() => {
-        if (!matchCosecha && !matchCosecheros && !matchDestinos) {
-            navigate('/reports/cosecha', { replace: true });
+        if (!matchHarvests && !matchHarvesters && !matchDestinations) {
+            navigate('/reports/harvests', { replace: true });
         }
-    }, [matchCosecha, matchCosecheros, matchDestinos, navigate]);
+    }, [matchHarvests, matchHarvesters, matchDestinations, navigate]);
 
-    // Componente TabButton (definido aquí o en common-ui-components si es global)
     const TabButton: FC<{ isActive: boolean; to: string; children: React.ReactNode }> = ({ isActive, to, children }) => (
         <Link
             to={to}
@@ -333,37 +304,71 @@ const Reports: FC = () => {
     );
 
     if (campaignsLoading) {
-        return <p>Cargando panel...</p>;
+        return (
+            <div className="space-y-6">
+                <PageHeader title="Reportes" breadcrumbs={[{ label: 'Reportes' }]} />
+                <p className="text-center py-8">Cargando reportes...</p>
+            </div>
+        );
+    }
+
+    if (campaigns.length === 0) {
+        return (
+            <div className="space-y-6">
+                <PageHeader title="Reportes" breadcrumbs={[{ label: 'Reportes' }]} />
+                <Card>
+                    <p className="text-center text-text-secondary">No hay campañas disponibles.</p>
+                </Card>
+            </div>
+        );
     }
 
     return (
-
-        <div className="font-inter antialiased bg-gray-50 text-gray-800 p-4 sm:p-6 lg:p-8 min-h-screen">
+        <div className="space-y-4 lg:space-y-6">
             <PageHeader title="Reportes" breadcrumbs={[{ label: 'Reportes' }]} />
-            <div className="max-w-7xl mx-auto space-y-4 lg:space-y-6">
-                <div className="flex space-x-1 bg-background p-1 rounded-xl overflow-x-auto shadow-sm">
-                    <TabButton isActive={activeTab === 'cosecha'} to="/reports/cosecha">Cosecha</TabButton>
-                    <TabButton isActive={activeTab === 'cosecheros'} to="/reports/cosecheros">Cosecheros</TabButton>
-                    <TabButton isActive={activeTab === 'destinos'} to="/reports/destinos">Destinos</TabButton>
-                </div>
 
-                <Filters
-                    campaigns={campaigns}
-                    campaignsLoading={campaignsLoading}
-                    filters={filters}
-                    availableCrops={availableCrops}
-                    availableFields={availableFields}
-                    availablePlots={availablePlots}
-                    sessionsLoading={sessionsLoading}
-                    handleFilterChange={handleFilterChange}
-                />
+            <Filters
+                campaigns={campaigns}
+                campaignsLoading={campaignsLoading}
+                filters={filters}
+                availableCrops={availableCrops}
+                availableFields={availableFields}
+                availablePlots={availablePlots}
+                handleFilterChange={handleFilterChange}
+            />
 
-                {/* Contenido dinámico según la pestaña seleccionada - renderizado por Outlet */}
-                <div className="animate-fade-in-fast">
-                    {/* Pasamos analytics y sessionsLoading al contexto del Outlet */}
-                    <Outlet context={{ analytics, sessionsLoading }} />
-                </div>
+            <div className="flex text-center space-x-1 bg-background p-1 rounded-xl overflow-x-auto shadow-sm">
+                <TabButton isActive={activeTab === 'harvests'} to="/reports/harvests">Cosecha</TabButton>
+                <TabButton isActive={activeTab === 'harvesters'} to="/reports/harvesters">Cosecheros</TabButton>
+                <TabButton isActive={activeTab === 'destinations'} to="/reports/destinations">Destinos</TabButton>
             </div>
+
+            {/* Mostrar estado de carga global */}
+            {analytics.loading && (
+                <Card>
+                    <div className="text-center py-8">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+                        <p className="text-text-secondary">Cargando datos de reportes...</p>
+                    </div>
+                </Card>
+            )}
+
+            {/* Mostrar error global */}
+            {analytics.error && !analytics.loading && (
+                <Card>
+                    <div className="text-center py-8">
+                        <p className="text-red-500 mb-2">Error al cargar los datos:</p>
+                        <p className="text-text-secondary text-sm">{analytics.error}</p>
+                    </div>
+                </Card>
+            )}
+
+            {/* Contenido dinámico según la pestaña seleccionada */}
+            {!analytics.loading && !analytics.error && (
+                <div className="animate-fade-in-fast">
+                    <Outlet context={{ analytics }} />
+                </div>
+            )}
         </div>
     );
 };

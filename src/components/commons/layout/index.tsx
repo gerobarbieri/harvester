@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { ChartColumnIncreasing, ClipboardList, Archive, Tractor, Truck } from "lucide-react";
 import { DesktopSidebar } from './desktop/Sidebar';
 import { MobileHeader } from './mobile/Header';
@@ -7,14 +7,14 @@ import { DesktopHeader } from './desktop/Header'
 import { Outlet } from 'react-router';
 
 const navItems = [
-    { name: 'Monitor Diario', icon: ClipboardList, path: '/' },
+    { name: 'Cosecha', icon: Tractor, path: '/' },
     {
         name: 'Reportes',
         icon: ChartColumnIncreasing,
         path: '/reports',
         roles: ['admin', 'owner'] // Solo visible para administradores
     },
-    { name: 'Cosecha', icon: Tractor, path: '/harvest-sessions' },
+    { name: 'Campaña', icon: ClipboardList, path: '/harvest-sessions' },
     { name: 'Logística', icon: Truck, path: '/logistics' },
     { name: 'Silos', icon: Archive, path: '/silo-bags' },
 ];
@@ -22,24 +22,50 @@ const navItems = [
 const Layout: React.FC = () => {
     const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
 
+    const menuRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent | TouchEvent) => {
+            if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+                setIsUserMenuOpen(false);
+            }
+        };
+
+        if (isUserMenuOpen) {
+            document.addEventListener('mousedown', handleClickOutside);
+            document.addEventListener('touchstart', handleClickOutside);
+        }
+
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+            document.removeEventListener('touchstart', handleClickOutside);
+        };
+    }, [isUserMenuOpen]);
+
     return (
         <div className="flex flex-col lg:flex-row min-h-screen bg-background text-text-primary">
-
             <DesktopSidebar
                 navItems={navItems}
             />
 
             <div className="flex-1 flex flex-col lg:ml-20">
                 <header>
-                    <MobileHeader />
+                    <MobileHeader
+                        isUserMenuOpen={isUserMenuOpen}
+                        setIsUserMenuOpen={setIsUserMenuOpen}
+                        menuRef={menuRef}
+                    />
                     <DesktopHeader
                         isUserMenuOpen={isUserMenuOpen}
                         setIsUserMenuOpen={setIsUserMenuOpen}
+                        menuRef={menuRef}
                     />
                 </header>
 
                 <main className="flex-1 overflow-y-auto p-4 lg:p-6 pb-24 lg:pb-6">
-                    <Outlet />
+                    <div className="max-w-7xl mx-auto w-full">
+                        <Outlet />
+                    </div>
                 </main>
 
                 <MobileBottomNav

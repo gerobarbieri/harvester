@@ -19,7 +19,7 @@ export const useHarvestSessionFilters = (harvestSessions: HarvestSession[] | nul
 
     const cropNames = useMemo(() => {
         const uniqueCrops = new Set(harvestSessionsFilteredByStatus.map(hs => hs.crop.name));
-        return ['Todos', ...Array.from(uniqueCrops).sort()];
+        return [...Array.from(uniqueCrops).sort()];
     }, [harvestSessionsFilteredByStatus]);
 
     useEffect(() => {

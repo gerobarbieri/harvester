@@ -1,5 +1,5 @@
 import { doc, serverTimestamp, updateDoc, collection, addDoc } from "firebase/firestore";
-import type { HarvestSession } from "../types";
+import type { Harvester, HarvestManager, HarvestSession } from "../types";
 import { db } from "../firebase/firebase";
 
 export const startHarvestSession = (harvestData: Partial<HarvestSession>) => {
@@ -35,6 +35,32 @@ export const updateHarvestSession = (harvestSessionId: string, fieldKey: string,
     // Creamos el objeto de actualización dinámicamente.
     const updatePayload = {
         [dbFieldName]: newValue,
+        updated_at: new Date(),
+        updated_at_server: serverTimestamp()
+    };
+
+    return updateDoc(harvestPlotRef, updatePayload);
+};
+
+export const updateHarvestManager = (harvestSessionId: string, newValue: HarvestManager) => {
+
+    const harvestPlotRef = doc(db, 'harvest_sessions', harvestSessionId);
+
+    const updatePayload = {
+        harvest_manager: newValue,
+        updated_at: new Date(),
+        updated_at_server: serverTimestamp()
+    };
+
+    return updateDoc(harvestPlotRef, updatePayload);
+};
+
+export const upsertHarvesters = (harvestSessionId: string, updatedHarvesters: Harvester[]) => {
+
+    const harvestPlotRef = doc(db, 'harvest_sessions', harvestSessionId);
+
+    const updatePayload = {
+        harvesters: updatedHarvesters,
         updated_at: new Date(),
         updated_at_server: serverTimestamp()
     };

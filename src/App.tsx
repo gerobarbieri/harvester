@@ -6,7 +6,8 @@ import HarvestView from './pages/dashboards/Harvest.tsx';
 import Reports, { DestinationsSection, HarvestersSection, HarvestSection } from './pages/dashboards/Reports.tsx';
 import SiloBagsView from './pages/silobags/Silobags.tsx';
 import Logistics from './pages/logistics/Logistics.tsx';
-import HarvestDetail, { CosecherosTab, RegistroTab, ResumenTab } from './pages/harvest-sessions/HarvestDetails.tsx';
+import HarvestDetail, { HarvestersTab, RegistersTab, SummaryTab } from './pages/harvest-sessions/HarvestDetails.tsx';
+import HarvestListView from './pages/harvest-sessions/Harvest.tsx';
 
 export default function App() {
 
@@ -18,16 +19,16 @@ export default function App() {
           <Route path="/" element={<HarvestView />} />
           <Route path="reports" element={<Reports />}>
             <Route index element={<HarvestSection />} /> {/* Ruta por defecto para /reports */}
-            <Route path="cosecha" element={<HarvestSection />} />
-            <Route path="cosecheros" element={<HarvestersSection />} />
-            <Route path="destinos" element={<DestinationsSection />} />
+            <Route path="harvests" element={<HarvestSection />} />
+            <Route path="harvesters" element={<HarvestersSection />} />
+            <Route path="destinations" element={<DestinationsSection />} />
           </Route>
-          <Route path="harvest-session" element={<HarvestView />} />
-          <Route path="harvest-session/{harvestSessionId}/details" element={<HarvestDetail onBack={() => window.history.back()} />}>
-            <Route index element={<ResumenTab />} /> {/* Ruta por defecto para /harvestSessionId */}
-            <Route path="resumen" element={<ResumenTab />} />
-            <Route path="registro" element={<RegistroTab />} />
-            <Route path="cosecheros" element={<CosecherosTab />} />
+          <Route path="harvest-sessions" element={<HarvestListView />} />
+          <Route path="harvest-sessions/:harvestSessionId/details" element={<HarvestDetail onBack={() => window.history.back()} />}>
+            <Route index element={<RegistersTab />} />
+            <Route path="summary" element={<SummaryTab />} />
+            <Route path="registers" element={<RegistersTab />} />
+            <Route path="harvesters" element={<HarvestersTab />} />
           </Route>
           <Route path="silo-bags" element={<SiloBagsView />} />
           <Route path="logistics" element={<Logistics />} />
