@@ -20,7 +20,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({ navItems }) =>
     const { currentUser } = useAuth();
 
     return (
-        <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-primary h-20 flex items-center justify-around rounded-t-2xl shadow-top z-40">
+        <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-secondary h-20 flex items-center justify-around rounded-t-2xl shadow-top z-40">
             {navItems.map((item) => {
                 // 5. Se filtra por rol antes de renderizar
                 const canView = !item.roles || (currentUser && item.roles.includes(currentUser.role));
@@ -37,7 +37,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({ navItems }) =>
                         to={item.path}
                         // 7. Se usan las clases condicionales basadas en 'isActive'
                         className={({ isActive }) =>
-                            `flex-1 h-full flex flex-col items-center justify-center space-y-1 transition-colors rounded-lg ${isActive ? 'bg-primary-medium' : 'hover:bg-primary-medium'
+                            `flex-1 h-full flex flex-col items-center justify-center space-y-1 transition-colors rounded-lg ${isActive ? 'bg-primary-darker' : 'hover:bg-primary-darker'
                             }`
                         }
                     >

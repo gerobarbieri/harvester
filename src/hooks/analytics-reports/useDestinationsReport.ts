@@ -1,4 +1,4 @@
-import { query, collection, where, onSnapshot } from "firebase/firestore";
+import { query, collection, where, onSnapshot, documentId } from "firebase/firestore";
 import { useState, useEffect } from "react";
 import useAuth from "../../context/auth/AuthContext";
 import { db } from "../../firebase/firebase";
@@ -22,25 +22,25 @@ export const useDestinationSummary = (campaignId?: string, cropId?: string, fiel
         setError(null);
 
         // Build document ID based on filters
-        let documentId = `camp_${campaignId}`;
-        let aggregationLevel = 'campaign';
+        let docId = `camp_${campaignId}_crop_${cropId}`;
+        let aggregationLevel = 'crop';
 
-        if (plotId) {
-            documentId += `_crop_${cropId}_field_${fieldId}_plot_${plotId}`;
-            aggregationLevel = 'plot';
-        } else if (fieldId) {
-            documentId += `_crop_${cropId}_field_${fieldId}`;
+        if (fieldId) {
+            docId += `_field_${fieldId}`;
             aggregationLevel = 'field';
-        } else if (cropId) {
-            documentId += `_crop_${cropId}`;
-            aggregationLevel = 'crop';
+        }
+
+        if (plotId && fieldId) { // Plot requiere field
+            docId += `_plot_${plotId}`;
+            aggregationLevel = 'plot';
         }
 
         const destinationSummaryQuery = query(
             collection(db, 'destination_analytics_summary'),
             where('organization_id', '==', currentUser.organizationId),
-            where('id', '==', documentId),
-            where('agregation_level', '==', aggregationLevel)
+            where(documentId(), ">=", docId),
+            where(documentId(), "<", docId + '\uf8ff'),
+            where('aggregation_level', '==', aggregationLevel)
         );
 
         const unsubscribe = onSnapshot(destinationSummaryQuery,

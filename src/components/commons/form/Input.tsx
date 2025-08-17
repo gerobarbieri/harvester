@@ -11,7 +11,7 @@ const Input: React.FC<InputProps> = ({ label, name, error, className = '', ...pr
         <input
             id={name}
             name={name}
-            className={`w-full p-3 border ${error ? 'border-red-400' : 'border-gray-300'} bg-background rounded-xl shadow-sm focus:outline-none focus:ring-2 ${error ? 'focus:ring-red-500' : 'focus:ring-primary-dark'} focus:border-transparent`}
+            className={`w-full p-3 border ${error ? 'border-red-400' : 'border-gray-300'} rounded-xl shadow-sm focus:outline-none focus:ring-2 ${error ? 'focus:ring-red-500' : 'focus:ring-primary-dark'} focus:border-transparent`}
             {...props}
         />
         {error && <p className="text-red-500 text-xs mt-1.5">{error}</p>}

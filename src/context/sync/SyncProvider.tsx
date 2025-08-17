@@ -1,7 +1,8 @@
-// context/sync/SyncProvider.tsx
+// src/context/sync/SyncProvider.tsx
 import { createContext, useState, useContext, useEffect, useCallback, useRef, type ReactNode } from 'react';
-import { primeOfflineCache } from '../../services/priming'
+import { primeOfflineCache } from '../../services/priming';
 import useAuth from '../auth/AuthContext';
+import { useToast } from '../../providers/ToastProvider';
 
 interface PrimingMetrics {
     totalQueries: number;
@@ -16,139 +17,150 @@ interface SyncContextType {
     lastSync: Date | null;
     syncError: Error | null;
     syncMetrics: PrimingMetrics | null;
-    triggerSync: () => Promise<void>;
+    triggerSync: () => Promise<boolean>;
     clearSyncError: () => void;
+    showRefreshPrompt: boolean;
+    setShowRefreshPrompt: (show: boolean) => void;
 }
 
 const SyncContext = createContext<SyncContextType | undefined>(undefined);
 
+// --- CONSTANTES DE ESTRATEGIA DE SYNC ---
+const MANUAL_SYNC_RATE_LIMIT_MS = 1000 * 60 * 60; // 1 minuto para el botón manual
+const RECONNECT_STALE_THRESHOLD_MS = 1000 * 60 * 15; // 15 minutos para reconexión automática
+
 export const SyncProvider = ({ children }: { children: ReactNode }) => {
     const [isSyncing, setIsSyncing] = useState(false);
-    const [lastSync, setLastSync] = useState<Date | null>(null);
+    const [lastSync, setLastSync] = useState<Date | null>(() => {
+        const saved = localStorage.getItem('lastSync');
+        return saved ? new Date(saved) : null;
+    });
     const [syncError, setSyncError] = useState<Error | null>(null);
     const [syncMetrics, setSyncMetrics] = useState<PrimingMetrics | null>(null);
+    const [showRefreshPrompt, setShowRefreshPrompt] = useState(false);
     const { currentUser } = useAuth();
+    const showToast = useToast();
+    const lastManualSyncAttempt = useRef<number>(0);
 
-    // ✅ Rate limiting - evitar múltiples syncs muy seguidos
-    const lastSyncAttempt = useRef<number>(0);
-    const RATE_LIMIT_MS = 10000; // 10 segundos entre syncs
-
-    const triggerSync = useCallback(async () => {
-        // ✅ Rate limiting mejorado
+    const triggerSync = useCallback(async (isManual = false): Promise<boolean> => {
         const now = Date.now();
-        if (now - lastSyncAttempt.current < RATE_LIMIT_MS) {
-            console.log(`⏳ Rate limit: esperando ${Math.ceil((RATE_LIMIT_MS - (now - lastSyncAttempt.current)) / 1000)}s`);
-            return;
+
+        if (isManual) {
+            if (now - lastManualSyncAttempt.current < MANUAL_SYNC_RATE_LIMIT_MS) {
+                const waitTime = Math.ceil((MANUAL_SYNC_RATE_LIMIT_MS - (now - lastManualSyncAttempt.current)) / 1000);
+                showToast(`Ya has sincronizado recientemente. Inténtalo de nuevo en ${waitTime} segundos.`, 'info');
+                return false;
+            }
+            lastManualSyncAttempt.current = now;
         }
 
         if (isSyncing) {
-            console.log('🔄 Sync ya en progreso, saltando...');
-            return;
+            console.log('🔄 Sincronización ya en progreso.');
+            return false;
         }
 
         if (!navigator.onLine) {
-            console.log('📱 Sin conexión - usando cache offline');
-            setSyncError(new Error('Sin conexión a internet'));
-            return;
+            if (isManual) showToast('No hay conexión a internet. La app funciona con datos locales.', 'warning');
+            return false;
+        }
+        if (!currentUser) {
+            console.log("👤 Usuario no logueado, no se puede sincronizar.");
+            return false;
         }
 
-        if (!currentUser?.organizationId || !currentUser?.role || !currentUser?.uid) {
-            console.log("👤 Datos de usuario no disponibles para sync");
-            return;
-        }
-
-        lastSyncAttempt.current = now;
+        setShowRefreshPrompt(false);
         setIsSyncing(true);
         setSyncError(null);
         setSyncMetrics(null);
 
         try {
-            console.log(`🚀 Iniciando sync para ${currentUser.role} en org: ${currentUser.organizationId}`);
+            console.log(`🚀 Iniciando sincronización para ${currentUser.role}`);
+            const metrics = await primeOfflineCache(currentUser.organizationId, currentUser.role, currentUser.uid);
 
-            // ✅ Capturar métricas del priming
-            const metrics = await primeOfflineCache(
-                currentUser.organizationId,
-                currentUser.role,
-                currentUser.uid
-            );
-
-            setLastSync(new Date());
+            const syncDate = new Date();
+            setLastSync(syncDate);
+            localStorage.setItem('lastSync', syncDate.toISOString());
+            localStorage.setItem('lastSyncDate', syncDate.toISOString().split('T')[0]);
             setSyncMetrics(metrics);
 
-            console.log(`✅ Sync completado: ${metrics.totalQueries} queries, ${metrics.totalDocuments} docs en ${metrics.duration}ms`);
-
-            // ✅ Log detallado solo en desarrollo
-            if (process.env.NODE_ENV === 'development') {
-                console.table({
-                    'Queries totales': metrics.totalQueries,
-                    'Documentos': metrics.totalDocuments,
-                    'Duración (ms)': metrics.duration,
-                    'Última fase': metrics.stage,
-                    'Errores': metrics.errors.length
-                });
-
-                if (metrics.errors.length > 0) {
-                    console.warn('⚠️ Errores durante el sync:', metrics.errors);
-                }
-            }
-
+            console.log(`✅ Sincronización completada.`);
+            if (isManual) showToast('Sincronización manual completada.', 'success');
+            return true;
         } catch (error: any) {
-            console.error("🔥 Sync failed:", error);
+            console.error("🔥 Falló la sincronización:", error);
             setSyncError(error);
-
-            // ✅ Métricas parciales si hubo error
-            if (error.metrics) {
-                setSyncMetrics(error.metrics);
-            }
+            showToast('Hubo un error durante la sincronización.', 'error');
+            if (error.metrics) setSyncMetrics(error.metrics);
+            return false;
         } finally {
             setIsSyncing(false);
         }
-    }, [currentUser]); // ✅ Eliminado isSyncing de dependencias para evitar bucles
+    }, [currentUser]);
 
-    // ✅ Función para limpiar errores manualmente
-    const clearSyncError = useCallback(() => {
-        setSyncError(null);
-    }, []);
+    const clearSyncError = useCallback(() => setSyncError(null), []);
 
-    // ✅ Sync inicial mejorado
-    // useEffect(() => {
-    //     if (currentUser && !lastSync && !isSyncing) {
-    //         console.log('🎯 Primera sincronización para usuario logueado');
-    //         triggerSync();
-    //     }
-    // }, [currentUser, lastSync, triggerSync]); // ✅ Quitado isSyncing de dependencias
+    useEffect(() => {
+        if (currentUser && !isSyncing) {
+            const today = new Date().toISOString().split('T')[0];
+            const lastSyncDate = localStorage.getItem('lastSyncDate');
+            if (today !== lastSyncDate) {
+                console.log('🎯 Primera sincronización del día.');
+                triggerSync();
+            }
+        }
+    }, [currentUser, isSyncing, triggerSync]);
 
-    // // ✅ Sync cuando vuelve la conexión
-    // useEffect(() => {
-    //     const handleOnline = () => {
-    //         if (currentUser && !isSyncing) {
-    //             console.log('🌐 Conexión restaurada, sincronizando...');
-    //             triggerSync();
-    //         }
-    //     };
+    useEffect(() => {
+        const handleOnline = () => {
+            if (currentUser && !isSyncing) {
+                const timeSinceLastSync = lastSync ? new Date().getTime() - lastSync.getTime() : Infinity;
+                if (timeSinceLastSync > RECONNECT_STALE_THRESHOLD_MS) {
+                    console.log('🌐 Conexión restaurada y datos desactualizados, sincronizando...');
+                    triggerSync();
+                } else {
+                    console.log('🌐 Conexión restaurada, los datos aún son recientes.');
+                }
+            }
+        };
+        window.addEventListener('online', handleOnline);
+        return () => window.removeEventListener('online', handleOnline);
+    }, [currentUser, isSyncing, lastSync, triggerSync]);
 
-    //     window.addEventListener('online', handleOnline);
-    //     return () => window.removeEventListener('online', handleOnline);
-    // }, [currentUser, triggerSync]); // ✅ Sin isSyncing
+    useEffect(() => {
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === 'visible' && lastSync && !isSyncing) {
+                const timeSinceLastSync = new Date().getTime() - lastSync.getTime();
+                if (timeSinceLastSync > RECONNECT_STALE_THRESHOLD_MS) {
+                    console.log('Datos posiblemente desactualizados. Mostrando banner de actualización.');
+                    setShowRefreshPrompt(true);
+                }
+            }
+        };
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+        return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+    }, [lastSync, isSyncing]);
 
-    // // ✅ Cleanup cuando el usuario se desloguea
-    // useEffect(() => {
-    //     if (!currentUser) {
-    //         setLastSync(null);
-    //         setSyncError(null);
-    //         setSyncMetrics(null);
-    //         lastSyncAttempt.current = 0;
-    //         console.log('🧹 Sync state limpiado por logout');
-    //     }
-    // }, [currentUser]);
+    useEffect(() => {
+        if (!currentUser) {
+            setLastSync(null);
+            localStorage.removeItem('lastSync');
+            localStorage.removeItem('lastSyncDate');
+            setSyncError(null);
+            setSyncMetrics(null);
+            lastManualSyncAttempt.current = 0;
+            console.log('🧹 Estado de sincronización limpiado por logout.');
+        }
+    }, [currentUser]);
 
-    const value = {
+    const value: SyncContextType = {
         isSyncing,
         lastSync,
         syncError,
         syncMetrics,
-        triggerSync,
-        clearSyncError
+        triggerSync: () => triggerSync(true),
+        clearSyncError,
+        showRefreshPrompt,
+        setShowRefreshPrompt,
     };
 
     return (
@@ -158,10 +170,10 @@ export const SyncProvider = ({ children }: { children: ReactNode }) => {
     );
 };
 
-export const useSync = () => {
+export const useSync = (): SyncContextType => {
     const context = useContext(SyncContext);
     if (context === undefined) {
-        throw new Error('useSync must be used within a SyncProvider');
+        throw new Error('useSync debe ser usado dentro de un SyncProvider');
     }
     return context;
 };

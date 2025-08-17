@@ -1,14 +1,14 @@
 // src/hooks/useCampaignFields.ts
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import useAuth from '../../context/auth/AuthContext';
-import type { CampaignFields } from '../../types';
+import type { CampaignField } from '../../types';
 import { collection, onSnapshot, query, where } from 'firebase/firestore';
 import { db } from '../../firebase/firebase';
 
 export const useCampaignFields = (campaignId: string) => {
     const { currentUser, loading: authLoading } = useAuth();
-    const [campaignFields, setCampaignFields] = useState<CampaignFields[]>([]);
+    const [campaignFields, setCampaignFields] = useState<CampaignField[]>([]);
     const [loading, setLoading] = useState<boolean>(true);
     const [error, setError] = useState<string | null>(null);
 
@@ -24,7 +24,7 @@ export const useCampaignFields = (campaignId: string) => {
             );
 
             const unsubscribe = onSnapshot(q, (snapshot) => {
-                const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() as CampaignFields }));
+                const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() as CampaignField }));
                 setCampaignFields(data);
                 setLoading(false);
             }, (err) => {
@@ -39,8 +39,8 @@ export const useCampaignFields = (campaignId: string) => {
         // Lógica para Manager (dos consultas y dos listeners)
         if (currentUser.role === 'manager') {
             // Estados intermedios para los resultados de cada listener
-            let assignedFields: CampaignFields[] = [];
-            let unassignedFields: CampaignFields[] = [];
+            let assignedFields: CampaignField[] = [];
+            let unassignedFields: CampaignField[] = [];
 
             // Función para unir y actualizar el estado final
             const mergeResults = () => {
@@ -59,7 +59,7 @@ export const useCampaignFields = (campaignId: string) => {
                 where('responsible_uids', 'array-contains', currentUser.uid)
             );
             const unsubscribeAssigned = onSnapshot(assignedQuery, (snapshot) => {
-                assignedFields = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() as CampaignFields }));
+                assignedFields = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() as CampaignField }));
                 mergeResults();
             }, (err) => {
                 console.error("Error en listener de campos asignados:", err);
@@ -74,7 +74,7 @@ export const useCampaignFields = (campaignId: string) => {
                 where('responsible_uids', '==', [])
             );
             const unsubscribeUnassigned = onSnapshot(unassignedQuery, (snapshot) => {
-                unassignedFields = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() as CampaignFields }));
+                unassignedFields = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() as CampaignField }));
                 mergeResults();
             }, (err) => {
                 console.error("Error en listener de campos sin asignar:", err);
@@ -89,5 +89,15 @@ export const useCampaignFields = (campaignId: string) => {
 
     }, [currentUser, authLoading, campaignId]);
 
-    return { campaignFields, loading, error };
+    const fieldOptions = useMemo(() =>
+        campaignFields.map(cf => ({
+            id: cf.field.id,
+            value: cf.field.id,
+            name: cf.field.name,
+            label: cf.field.name
+        })),
+        [campaignFields]
+    );
+
+    return { campaignFields, loading, error, fieldOptions };
 };

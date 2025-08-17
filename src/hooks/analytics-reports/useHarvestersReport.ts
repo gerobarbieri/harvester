@@ -1,4 +1,4 @@
-import { query, collection, where, onSnapshot } from "firebase/firestore";
+import { query, collection, where, onSnapshot, documentId } from "firebase/firestore";
 import { useState, useEffect } from "react";
 import useAuth from "../../context/auth/AuthContext";
 import { db } from "../../firebase/firebase";
@@ -21,40 +21,27 @@ export const useHarvestersSummary = (campaignId?: string, cropId?: string, field
         setLoading(true);
         setError(null);
 
-        // Determine aggregation level
-        let aggregationLevel = 'campaign';
-        if (plotId) {
-            aggregationLevel = 'plot';
-        } else if (fieldId) {
+
+        let docId = `camp_${campaignId}_crop_${cropId}`;
+        let aggregationLevel = 'crop';
+
+        if (fieldId) {
+            docId += `_field_${fieldId}`;
             aggregationLevel = 'field';
-        } else if (cropId) {
-            aggregationLevel = 'crop';
         }
 
-        let harvestersSummaryQuery = query(
+        if (plotId && fieldId) {
+            docId += `_plot_${plotId}`;
+            aggregationLevel = 'plot';
+        }
+
+        const harvestersSummaryQuery = query(
             collection(db, 'harvester_analytics_summary'),
             where('organization_id', '==', currentUser.organizationId),
-            where('agregation_level', '==', aggregationLevel)
+            where(documentId(), ">=", docId),
+            where(documentId(), "<", docId + '\uf8ff'),
+            where('aggregation_level', '==', aggregationLevel)
         );
-
-        // If we have specific filters, search by constructed ID
-        if (plotId || fieldId || cropId) {
-            let documentId = `camp_${campaignId}`;
-            if (plotId) {
-                documentId += `_crop_${cropId}_field_${fieldId}_plot_${plotId}`;
-            } else if (fieldId) {
-                documentId += `_crop_${cropId}_field_${fieldId}`;
-            } else if (cropId) {
-                documentId += `_crop_${cropId}`;
-            }
-
-            harvestersSummaryQuery = query(
-                collection(db, 'harvester_analytics_summary'),
-                where('organization_id', '==', currentUser.organizationId),
-                where('id', '==', documentId),
-                where('agregation_level', '==', aggregationLevel)
-            );
-        }
 
         const unsubscribe = onSnapshot(harvestersSummaryQuery,
             (snapshot) => {

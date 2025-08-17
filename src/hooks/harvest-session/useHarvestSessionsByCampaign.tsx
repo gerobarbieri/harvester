@@ -11,7 +11,7 @@ export const useHarvestSessionsByCampaign = (campaignId: string) => {
     const { currentUser, loading: authLoading } = useAuth();
     const [sessions, setSessions] = useState<HarvestSession[]>([]);
     const [loading, setLoading] = useState<boolean>(true);
-    const [error, setError] = useState<string | null>(null); // Añadido para consistencia
+    const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
         if (authLoading || !currentUser || !campaignId) {
@@ -49,5 +49,5 @@ export const useHarvestSessionsByCampaign = (campaignId: string) => {
 
     }, [campaignId, currentUser, authLoading]);
 
-    return { sessions, loading, error }; // Devolvemos el error también
+    return { sessions, loading, error };
 };

@@ -1,46 +1,60 @@
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router";
 import Button from "../../components/commons/Button";
 import PageHeader from "../../components/commons/layout/PageHeader";
 import Tabs from "../../components/harvest-session/ui/Tabs";
-import Filters from "../../components/harvest-session/ui/Filters";
 import AddModal from "../../components/harvest-session/modals/AddModal";
 import { PlusCircle } from "lucide-react";
-import { useActiveCampaign } from "../../hooks/campaign/useActiveCampaign";
 import { useHarvestSessionsByCampaign } from "../../hooks/harvest-session/useHarvestSessionsByCampaign";
 import { useHarvestSessionFilters } from "../../hooks/harvest-session/useHarvestSessionsFilters";
 import SessionSection from "../../components/harvest-session/ui/SessionSection";
+import SessionsFilters, { type SessionsFiltersProps } from "../../components/harvest-session/ui/Filters";
+
+import { useCampaigns } from "../../hooks/campaign/useCampaigns";
 
 const HarvestListView = () => {
+    const [filters, setFilters] = useState<SessionsFiltersProps>({
+        campaign: '', crop: 'all', field: 'all'
+    });
     const [activeTab, setActiveTab] = useState('todos');
     const [isModalOpen, setIsModalOpen] = useState(false);
     const navigate = useNavigate();
+    const { campaigns, loading: loadingCampaigns } = useCampaigns();
+    const { sessions, loading: loadingSessions, error } = useHarvestSessionsByCampaign(filters.campaign);
 
-    // Hooks para obtener datos
-    const { campaign, loading: loadingCampaign } = useActiveCampaign();
-    const { sessions, loading: loadingSessions, error } = useHarvestSessionsByCampaign(campaign?.id);
+    useEffect(() => {
+        if (campaigns.length > 0 && !filters.campaign) {
+            const activeCampaign = campaigns.find(c => c.active === true) || campaigns[0];
+            if (activeCampaign) {
+                setFilters(prev => ({ ...prev, campaign: activeCampaign.id }));
+            }
+        }
+    }, [campaigns, filters.campaign]);
 
-    // Hook para filtros de sesiones
-    const {
-        filteredSessions,
-        filterStatus,
-        setFilterStatus,
-        cropNames,
-        filterCrop,
-        setFilterCrop
-    } = useHarvestSessionFilters(sessions);
+    const handleFilterChange = useCallback((filterName: keyof SessionsFiltersProps, value: string) => {
+        setFilters(currentFilters => {
+            const newFilters = { ...currentFilters, [filterName]: value };
+            if (filterName === 'campaign') {
+                newFilters.field = 'all';
+                newFilters.crop = 'all';
+            }
+            return newFilters;
+        });
+    }, []);
 
-    // Filtrar por tab activo
+    const { filteredSessions } = useHarvestSessionFilters(sessions, filters);
+
     const getFilteredByTab = () => {
         if (activeTab === 'todos') return filteredSessions;
 
         const statusMap = {
             'pending': ['pending', 'Pendiente'],
             'in-progress': ['in-progress', 'En Progreso'],
-            'finished': ['finished', 'Finalizado', 'finished']
+            'finished': ['finished', 'Finalizado'] // Simplificado
         };
 
         const allowedStatuses = statusMap[activeTab] || [];
+        // Usamos optional chaining (?) por si filteredSessions es undefined al inicio
         return filteredSessions?.filter(session =>
             allowedStatuses.includes(session.status)
         ) || [];
@@ -66,14 +80,14 @@ const HarvestListView = () => {
         console.log(`${type}: ${message}`);
     };
 
-    if (loadingCampaign) {
-        return <div className="text-center py-8">Cargando campaña...</div>;
+    if (loadingCampaigns) {
+        return <div className="text-center py-8">Cargando campañas...</div>;
     }
 
-    if (!campaign) {
+    if (!campaigns) {
         return (
             <div className="text-center py-8">
-                <p className="text-text-secondary">No hay una campaña activa.</p>
+                <p className="text-text-secondary">No hay campañas disponibles.</p>
             </div>
         );
     }
@@ -100,12 +114,12 @@ const HarvestListView = () => {
                 </div>
             </PageHeader>
 
-            <Filters
-                campaign={campaign}
-                filterCrop={filterCrop}
-                setFilterCrop={setFilterCrop}
-                cropNames={cropNames}
-                loading={loadingSessions}
+            <SessionsFilters
+                filters={filters}
+                onFilterChange={handleFilterChange}
+                campaigns={campaigns}
+                campaignsLoading={loadingCampaigns}
+                sessionsForCampaign={sessions}
             />
 
             <Tabs activeTab={activeTab} setActiveTab={setActiveTab} />
@@ -120,7 +134,6 @@ const HarvestListView = () => {
                 isOpen={isModalOpen}
                 onClose={closeModal}
                 showToast={showToast}
-                campaign={campaign}
             />
         </div>
     );

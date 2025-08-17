@@ -1,8 +1,5 @@
-// src/components/dashboards/harvest/PlotCardList.tsx
-import { PlayCircle, PlusCircle } from "lucide-react";
-import Card from "../../commons/Card";
+import { PlayCircle } from "lucide-react";
 import { useNavigate } from "react-router";
-import StatusBadge from "../../commons/StatusBadge";
 import type { FC } from "react";
 import Button from "../../commons/Button";
 
@@ -21,7 +18,7 @@ const SessionCardList: FC<{ sessions: Session[], showProgress?: boolean }> = ({ 
         <div className="bg-gray-50 p-4 rounded-xl hover:bg-gray-100 transition-colors cursor-pointer" onClick={() => navigate(`harvest-sessions/${session.id}/details`)}>
             <div className="flex justify-between items-center">
                 <div>
-                    <p className="font-semibold text-gray-900">{session.name}</p>
+                    <p className="font-semibold text-gray-900">Lote {session.name}</p>
                     <p className="text-gray-500 text-sm">{session.field.name} - {session.crop.name}</p>
                 </div>
                 {showProgress ? (

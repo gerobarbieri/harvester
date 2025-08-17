@@ -1,5 +1,6 @@
 import type { FC } from "react";
 import Card from "../../../../../components/commons/Card";
+import { formatNumber } from "../../../../../utils";
 
 interface HarvestProgressCardProps {
     harvestedHectares: number;
@@ -16,12 +17,12 @@ const HarvestProgressCard: FC<HarvestProgressCardProps> = ({ harvestedHectares, 
             <div className="text-3xl font-bold text-text-primary mb-4">{progress.toFixed(1)}%</div>
             <div className="w-full bg-background rounded-full h-3 mb-2">
                 <div
-                    className="bg-primary h-3 rounded-full transition-all duration-500"
+                    className="bg-primary-darker h-3 rounded-full transition-all duration-500"
                     style={{ width: `${progress}%` }}
                 ></div>
             </div>
             <p className="text-text-secondary text-sm">
-                {harvestedHectares.toLocaleString('es-AR')} ha / {hectares.toLocaleString('es-AR')} ha
+                {formatNumber(harvestedHectares)} ha / {formatNumber(hectares)} ha
             </p>
         </Card>
     )

@@ -16,12 +16,12 @@ import { startHarvestSession } from '../../../services/harvestSession';
 import useAuth from '../../../context/auth/AuthContext';
 import { useEffect } from 'react';
 import { Timestamp } from 'firebase/firestore';
+import { useActiveCampaign } from '../../../hooks/campaign/useActiveCampaign';
 
 interface AddModalProps {
     isOpen: boolean;
     onClose: () => void;
     showToast: (message: string, type: string) => void;
-    campaign: Campaign;
 }
 
 // Definimos un tipo para los datos del formulario para mayor claridad
@@ -35,7 +35,8 @@ type HarvestFormData = {
     harvesters: { harvesterId: string; maps: boolean }[];
 };
 
-const AddModal = ({ isOpen, onClose, showToast, campaign }: AddModalProps) => {
+const AddModal = ({ isOpen, onClose, showToast }: AddModalProps) => {
+    const { campaign, error, loading } = useActiveCampaign();
     const { control, register, handleSubmit, formState: { errors, isSubmitting }, reset, setValue } = useForm<HarvestFormData>({
         defaultValues: {
             fieldId: '',
@@ -73,8 +74,6 @@ const AddModal = ({ isOpen, onClose, showToast, campaign }: AddModalProps) => {
 
     useEffect(() => {
         if (selectedPlot) {
-            // Usamos `setValue` para actualizar el campo del formulario.
-            // El `shouldValidate: true` hace que la validación se corra inmediatamente.
             setValue('hectares', selectedPlot.hectares || 0, { shouldValidate: true });
         } else {
             setValue('hectares', undefined, { shouldValidate: false });
@@ -88,11 +87,6 @@ const AddModal = ({ isOpen, onClose, showToast, campaign }: AddModalProps) => {
     const harvesterOptions = harvesters?.map(harvester => ({ id: harvester.id, name: harvester.name })) || [];
     const managerOptions = harvestManagers?.map(manager => ({ id: manager.id, name: manager.name })) || [];
 
-    /**
-     * PROBLEMA 1 SOLUCIONADO: Transformación de datos para Firebase.
-     * Esta función ahora busca los objetos completos (campo, lote, etc.) usando los IDs del formulario
-     * y construye el objeto `hsData` con la estructura que necesita Firestore.
-     */
     const onSubmit = async (data: HarvestFormData) => {
         try {
 
@@ -119,13 +113,11 @@ const AddModal = ({ isOpen, onClose, showToast, campaign }: AddModalProps) => {
                 return;
             }
 
-            console.log(data.hectares);
-
             const hsData = {
                 field: { id: selectedField.id, name: selectedField.name },
                 plot: { id: selectedPlot.id, name: selectedPlot.name },
                 crop: { id: selectedCrop.id, name: selectedCrop.name },
-                manager: { id: selectedManager.id, name: selectedManager.name },
+                harvest_manager: { id: selectedManager.id, name: selectedManager.name },
                 harvesters: selectedHarvesters,
                 hectares: data.hectares,
                 estimated_yield: data.estimatedYield,
@@ -157,12 +149,7 @@ const AddModal = ({ isOpen, onClose, showToast, campaign }: AddModalProps) => {
         <Modal isOpen={isOpen} onClose={handleClose} title="Iniciar Cosecha de Lote">
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
                 <div className="grid grid-cols-2 gap-4">
-                    {/* * NOTA SOBRE EL PLACEHOLDER: El problema de que "Elija un campo" aparezca como opción
-                      * se debe probablemente a la implementación de tu componente `Select`. Un buen componente
-                      * `Select` debería renderizar el placeholder como una opción deshabilitada:
-                      * `<option value="" disabled>Elige un campo...</option>`.
-                      * Te recomiendo revisar ese componente. La forma en que lo usas aquí es correcta.
-                    */}
+
                     <Controller
                         name="fieldId"
                         control={control}
@@ -177,14 +164,6 @@ const AddModal = ({ isOpen, onClose, showToast, campaign }: AddModalProps) => {
                             />
                         )}
                     />
-                    {/*
-                      * PROBLEMA 2 SOLUCIONADO: Lógica mejorada para el select de Lotes.
-                      * Ahora el placeholder y el estado `disabled` reaccionan a la carga de datos,
-                      * informando al usuario si los lotes están cargando o si no hay lotes disponibles.
-                      * Esto soluciona el problema de que los lotes no se mostraban.
-                      * Si sigue sin funcionar, asegúrate que tu hook `usePlots` se actualiza
-                      * correctamente cuando `selectedFieldId` cambia.
-                    */}
                     <Controller
                         name="plotId"
                         control={control}
@@ -297,16 +276,16 @@ const AddModal = ({ isOpen, onClose, showToast, campaign }: AddModalProps) => {
                                     )}
                                 />
                             </div>
-                            {fields.length > 1 && (
-                                <Button
-                                    type="button"
-                                    variant="ghost"
-                                    onClick={() => remove(index)}
-                                    aria-label="Quitar cosechero"
-                                >
-                                    <Trash2 size={18} className="text-red-500" />
-                                </Button>
-                            )}
+
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                onClick={() => remove(index)}
+                                aria-label="Quitar cosechero"
+                            >
+                                <Trash2 size={18} className="text-red-500" />
+                            </Button>
+
                         </div>
                     ))}
                     <div className="flex justify-end pt-2">

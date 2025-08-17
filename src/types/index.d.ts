@@ -20,7 +20,7 @@ export interface Field {
     location?: object
 }
 
-export interface CampaignFields {
+export interface CampaignField {
     id: string;
     campaign: Partial<Campaign>
     field: Partial<Field>
@@ -88,15 +88,30 @@ export interface Crop {
 export interface Silobag {
     id: string;
     name: string;
+    organization_id: string;
     created_at?: Timestamp;
     current_kg: number;
     initial_kg: number;
+    lost_kg: number;
     crop: {
         id: string;
         name: string;
     };
+    field: {
+        id: string;
+        name: string;
+    },
     location: string
     status: string
+    details?: string
+}
+
+export interface SilobagMovement {
+    id: string
+    date: Timestamp;
+    kg_change: number;
+    details?: string;
+    type: MovementType
 }
 
 export interface Truck {
@@ -171,3 +186,5 @@ export interface HarvestersSummary {
 }
 
 export type FilterStatus = 'Todos' | 'Pendientes' | 'En Progreso' | 'Finalizados'
+
+export type MovementType = 'creation' | 'harvest_entry' | 'substract' | 'close' | 'loss'

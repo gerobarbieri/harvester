@@ -1,89 +1,63 @@
-// src/hooks/reports/useReportsAnalytics.tsx
+// src/hooks/reports/useReportsAnalytics.tsx - Versión Simplificada
 import { useMemo } from 'react';
-import { useDestinationSummary } from './useDestinationsReport';
-import { useHarvestersSummary } from "./useHarvestersReport"
-import { useHarvestSummary } from "./useHarvestsReport";
-import type { DestinationSummary, HarvestersSummary, HarvestSummary } from '../../types';
+import { useDestinationSummary } from '../analytics-reports/useDestinationsReport';
+import { useHarvestersSummary } from '../analytics-reports/useHarvestersReport';
+import { useHarvestSummary } from '../analytics-reports/useHarvestsReport';
 
-interface AnalyticsData {
-    harvestSummary: HarvestSummary
-    harvestersSummary: HarvestersSummary[]
-    destinationSummary: DestinationSummary[]
-    loading: boolean;
-    error: string | null;
+interface ReportsFilters {
+    campaign: string;
+    crop: string;
+    field: string;
+    plot: string;
 }
 
-export const useReportsAnalytics = (
-    campaignId: string,
-    filters: {
-        crop: string;
-        field: string;
-        plot: string;
-    }
-): AnalyticsData => {
-    // Determine query parameters based on filters
+export const useReportsAnalytics = (filters: ReportsFilters) => {
+
+    // Armar parámetros de query de forma simple
     const queryParams = useMemo(() => {
-        const cropId = filters.crop !== 'all' ? filters.crop : undefined;
-        const fieldId = filters.field !== 'all' ? filters.field : undefined;
-        const plotId = filters.plot !== 'all' ? filters.plot : undefined;
+        // Si no hay campaign + crop, no hacer query
+        if (!filters.campaign || !filters.crop || filters.crop === 'all') {
+            return null;
+        }
 
-        return { campaignId, cropId, fieldId, plotId };
-    }, [campaignId, filters]);
-
-    // Get data from aggregated summaries
-    const {
-        harvestSummary,
-        loading: harvestLoading,
-        error: harvestError
-    } = useHarvestSummary(
-        queryParams.campaignId,
-        queryParams.cropId,
-        queryParams.fieldId,
-        queryParams.plotId
-    );
-
-    const {
-        destinationSummary,
-        loading: destinationLoading,
-        error: destinationError
-    } = useDestinationSummary(
-        queryParams.campaignId,
-        queryParams.cropId,
-        queryParams.fieldId,
-        queryParams.plotId
-    );
-
-    const {
-        harvestersSummary,
-        loading: harvestersLoading,
-        error: harvestersError
-    } = useHarvestersSummary(
-        queryParams.campaignId,
-        queryParams.cropId,
-        queryParams.fieldId,
-        queryParams.plotId
-    );
-
-    return useMemo(() => {
-        const loading = harvestLoading || destinationLoading || harvestersLoading;
-        const error = harvestError || destinationError || harvestersError;
-
-        return {
-            harvestSummary,
-            harvestersSummary,
-            destinationSummary,
-            loading,
-            error
+        // Recoger solo los valores que no son 'all' o vacíos
+        const params = {
+            campaignId: filters.campaign,
+            cropId: filters.crop,
+            fieldId: filters.field !== 'all' ? filters.field : undefined,
+            plotId: filters.plot !== 'all' ? filters.plot : undefined
         };
-    }, [
-        harvestSummary,
-        destinationSummary,
-        harvestersSummary,
-        harvestLoading,
-        destinationLoading,
-        harvestersLoading,
-        harvestError,
-        destinationError,
-        harvestersError
-    ]);
+
+        return params;
+    }, [filters.campaign, filters]);
+
+    // Usar los parámetros en los hooks existentes
+    const harvestSummary = useHarvestSummary(
+        queryParams?.campaignId,
+        queryParams?.cropId,
+        queryParams?.fieldId,
+        queryParams?.plotId
+    );
+
+    const destinationSummary = useDestinationSummary(
+        queryParams?.campaignId,
+        queryParams?.cropId,
+        queryParams?.fieldId,
+        queryParams?.plotId
+    );
+
+    const harvestersSummary = useHarvestersSummary(
+        queryParams?.campaignId,
+        queryParams?.cropId,
+        queryParams?.fieldId,
+        queryParams?.plotId
+    );
+
+    return {
+        harvestSummary: harvestSummary.harvestSummary,
+        harvestersSummary: harvestersSummary.harvestersSummary,
+        destinationSummary: destinationSummary.destinationSummary,
+        loading: harvestSummary.loading || destinationSummary.loading || harvestersSummary.loading,
+        error: harvestSummary.error || destinationSummary.error || harvestersSummary.error
+    };
 };

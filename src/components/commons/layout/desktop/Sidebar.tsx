@@ -2,6 +2,7 @@ import React from 'react';
 import { type LucideProps } from 'lucide-react';
 import useAuth from '../../../../context/auth/AuthContext';
 import { NavLink } from 'react-router';
+import logo from '../../../../assets/logo.png'
 
 interface NavItem {
     name: string;
@@ -20,9 +21,10 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({ navItems }) => {
     const { currentUser } = useAuth();
 
     return (
-        <aside className="hidden lg:flex fixed left-0 top-0 w-20 h-full bg-primary p-3 flex-col items-center z-50">
-            <div className="bg-primary-darker w-14 h-14 rounded-full flex items-center justify-center mt-2 mb-6">
-                <span className="text-white font-bold text-lg">H</span>
+        <aside className="hidden lg:flex fixed left-0 top-0 w-20 h-full bg-secondary p-3 flex-col items-center z-50">
+            <div className="w-14 h-14 flex items-center justify-center mt-2 mb-6">
+                {/* 2. Reemplaza el <span> por <img> */}
+                <img src={logo} alt="Logo de Hallmay" className="h-18 w-18 object-contain" />
             </div>
             <nav className="flex-1 flex flex-col space-y-3 items-center">
                 {navItems.map((item) => {

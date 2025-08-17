@@ -1,6 +1,6 @@
-import { addDoc, collection, deleteDoc, doc, serverTimestamp, updateDoc } from "firebase/firestore";
+import { addDoc, collection, deleteDoc, doc, serverTimestamp, Timestamp, updateDoc, writeBatch } from "firebase/firestore";
 import { db } from "../firebase/firebase";
-import type { HarvestSessionRegister } from "../types";
+import type { Destination, HarvestSession, HarvestSessionRegister, Silobag } from "../types";
 
 export const deleteRegister = (registerId: string, sessionId: string) => {
     if (!registerId) return;
@@ -10,23 +10,89 @@ export const deleteRegister = (registerId: string, sessionId: string) => {
     return deleteDoc(registerRef);
 };
 
-export const addRegister = (recordData: Partial<HarvestSessionRegister>, sessionId: string) => {
-    const finalRecord = {
-        ...recordData,
-        created_at: new Date(),
-        created_at_server: serverTimestamp(),
+export const addRegister = (data: any, harvestSession: HarvestSession, silobag?: Silobag, destination?: Destination) => {
+    const batch = writeBatch(db);
+    let siloBagForRegister: { id: string, name: string, location: string };
+    let silobagData;
+
+    const isNewSiloBag = data.type === 'silo_bag' && !data.siloBagId;
+
+    if (isNewSiloBag) {
+        const newSiloBagRef = doc(collection(db, 'silo_bags'));
+        silobagData = {
+            id: newSiloBagRef.id,
+            name: data.newSiloBagName,
+            crop: {
+                id: harvestSession.crop.id,
+                name: harvestSession.crop.name
+            },
+            field: {
+                id: harvestSession.field.id,
+                name: harvestSession.field.name
+            },
+            initial_kg: parseFloat(data.weight_kg),
+            location: data.location,
+            organization_id: data.organization_id,
+            status: 'active',
+            created_at: Timestamp.fromDate(new Date())
+        };
+
+        batch.set(newSiloBagRef, silobagData);
+        siloBagForRegister = { id: silobagData.id, name: silobagData.name, location: silobagData.location };
+
+    } else if (data.type === 'silo_bag') {
+        siloBagForRegister = { id: silobag.id, name: silobag.name, location: silobag.location };
+    }
+
+    const registerRef = doc(collection(db, `harvest_sessions/${harvestSession.id}/registers`));
+
+    const registerData = {
+        organization_id: data.organization_id,
+        date: Timestamp.fromDate(new Date()),
+        humidity: parseFloat(data.humidity),
+        weight_kg: parseFloat(data.weight_kg),
+        type: data.type,
+        details: data.observations,
+        ...(data.type === 'truck' ? {
+            truck: {
+                driver: data.driver,
+                license_plate: data.license_plate
+            },
+            destination: destination || null,
+            ctg: data.ctg || null,
+            cpe: data.cpe || null
+        } : {
+            silo_bag: siloBagForRegister
+        })
     };
 
-    return addDoc(collection(db, `harvest_sessions/${sessionId}/registers`), finalRecord);
+    batch.set(registerRef, registerData);
+
+    batch.commit();
 }
 
-export const updateRegister = (registerId: string, sessionId: string, updatedData: Partial<HarvestSessionRegister>) => {
-    if (!registerId || !sessionId || !updatedData) return;
-
+export const updateRegister = (registerId: string, sessionId: string, data: any, silobag?: Partial<Silobag>, destination?: Destination) => {
+    const batch = writeBatch(db);
+    // 1. Obtener la referencia al documento del registro existente
     const registerRef = doc(db, `harvest_sessions/${sessionId}/registers`, registerId);
 
-    return updateDoc(registerRef, {
-        ...updatedData,
-        updated_at: serverTimestamp()
-    });
+    const updatedRegisterData = {
+        humidity: parseFloat(data.humidity),
+        weight_kg: parseFloat(data.weight_kg),
+        details: data.observations,
+        ...(data.type === 'truck' ? {
+            truck: {
+                driver: data.driver,
+                license_plate: data.license_plate
+            },
+            destination: destination || null,
+            ctg: data.ctg || null,
+            cpe: data.cpe || null
+        } : {
+            silo_bag: silobag
+        })
+    };
+
+    batch.update(registerRef, updatedRegisterData);
+    batch.commit();
 };

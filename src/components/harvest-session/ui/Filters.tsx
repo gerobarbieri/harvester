@@ -1,53 +1,84 @@
-// src/components/harvest-session/ui/Filters.tsx
-import type { FC } from "react";
-import Card from "../../commons/Card";
+import { type FC, useMemo } from "react";
+import type { Campaign, HarvestSession } from "../../../types";
 import Select from "../../commons/form/Select";
-import type { Campaign } from "../../../types";
+import Card from "../../commons/Card";
+import useAuth from "../../../context/auth/AuthContext";
 
-interface FiltersProps {
-    campaign: Campaign;
-    filterCrop: string;
-    setFilterCrop: (crop: string) => void;
-    cropNames: string[];
-    loading: boolean;
+// Define la forma del objeto de filtros que recibe
+export interface SessionsFiltersProps {
+    campaign: string;
+    crop: string;
+    field: string;
 }
 
-const Filters: FC<FiltersProps> = ({
-    campaign,
-    filterCrop,
-    setFilterCrop,
-    cropNames,
-    loading
+// Define todas las props que el componente necesita del padre
+interface FilterComponentProps {
+    filters: SessionsFiltersProps;
+    onFilterChange: (filterName: keyof SessionsFiltersProps, value: string) => void;
+    campaigns: Campaign[];
+    campaignsLoading: boolean;
+    sessionsForCampaign: HarvestSession[];
+
+}
+
+const SessionsFilters: FC<FilterComponentProps> = ({
+    filters,
+    onFilterChange,
+    campaigns,
+    campaignsLoading,
+    sessionsForCampaign
+
 }) => {
-    const cropOptions = cropNames.map(name => ({ id: name, name }));
+
+    const { currentUser } = useAuth();
+    console.log(typeof currentUser.role)
+    const availableFields = useMemo(() => {
+        if (!sessionsForCampaign) return [];
+        const unique = new Map(sessionsForCampaign.map(s => [s.field.id, s.field]));
+        return Array.from(unique.values());
+    }, [sessionsForCampaign]);
+
+    const availableCrops = useMemo(() => {
+        if (!sessionsForCampaign) return [];
+        const unique = new Map(sessionsForCampaign.map(s => [s.crop.id, s.crop]));
+        return Array.from(unique.values());
+    }, [sessionsForCampaign]);
+
+    const campaignOptions = useMemo(() => campaigns.map(c => ({ value: c.id, label: c.name })), [campaigns]);
+    const fieldOptions = useMemo(() => [{ value: 'all', label: 'Todos los campos' }, ...availableFields.map(f => ({ value: f.id, label: f.name }))], [availableFields]);
+    const cropOptions = useMemo(() => [{ value: 'all', label: 'Todos los cultivos' }, ...availableCrops.map(c => ({ value: c.id, label: c.name }))], [availableCrops]);
 
     return (
         <Card>
-            <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
-                <div className="col-span-2 lg:col-span-1">
+            <h2 className="text-lg font-bold text-text-primary mb-4">Filtros</h2>
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                {(currentUser.role === "owner" || currentUser.role === "admin") &&
                     <Select
+                        name="campaign"
                         label="Campaña"
-                        items={[{ id: campaign.id, name: campaign.name }]}
-                        name="campana"
-                        placeholder="Seleccionar Campaña"
-                        value={campaign.id}
-                        disabled={true}
+                        items={campaignOptions}
+                        value={filters.campaign}
+                        onChange={(newValue) => onFilterChange('campaign', newValue as string)}
+                        disabled={campaignsLoading}
                     />
-                </div>
-                <div className="col-span-1">
-                    <Select
-                        label="Cultivo"
-                        items={cropOptions}
-                        name="cultivo"
-                        placeholder="Todos los Cultivos"
-                        value={filterCrop}
-                        onChange={(e) => setFilterCrop(e.target.value)}
-                        disabled={loading}
-                    />
-                </div>
+                }
+                <Select
+                    name="field"
+                    label="Campo (Opcional)"
+                    items={fieldOptions}
+                    value={filters.field}
+                    onChange={(newValue) => onFilterChange('field', newValue as string)}
+                />
+                <Select
+                    name="crop"
+                    label="Cultivo (Opcional)"
+                    items={cropOptions}
+                    value={filters.crop}
+                    onChange={(newValue) => onFilterChange('crop', newValue as string)}
+                />
             </div>
         </Card>
     );
 };
 
-export default Filters;
+export default SessionsFilters;

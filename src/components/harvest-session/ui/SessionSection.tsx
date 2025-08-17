@@ -1,6 +1,5 @@
 // src/components/harvest-session/ui/PlotSection.tsx
 import type { FC } from "react";
-import Button from "../../commons/Button";
 import Card from "../../commons/Card";
 import type { HarvestSession } from "../../../types";
 import StatusBadge from "../../commons/StatusBadge";
@@ -28,7 +27,7 @@ const SessionCard: FC<{ harvestSession: HarvestSession; onClick: (harvestSession
             <div>
                 <div className="flex justify-between items-start">
                     <h3 className="font-bold text-lg text-text-primary">
-                        {harvestSession.plot?.name || 'Sin nombre'}
+                        Lote {harvestSession.plot?.name || 'Sin nombre'}
                     </h3>
                     <StatusBadge status={harvestSession.status} />
                 </div>
@@ -54,7 +53,7 @@ const SessionCard: FC<{ harvestSession: HarvestSession; onClick: (harvestSession
                 <div className="h-2 w-full bg-gray-200 rounded-full overflow-hidden">
                     <div
                         style={{ width: `${Math.min(progress, 100)}%` }}
-                        className="h-full bg-primary transition-all duration-500"
+                        className="h-full bg-primary-darker transition-all duration-500"
                     ></div>
                 </div>
             </div>
@@ -92,7 +91,7 @@ const SessionSection: FC<SessionSectionProps> = ({ harvestSessions, onViewLot, l
             </div>
 
             {/* Botón para cargar más registros - TODO: implementar paginación */}
-            {harvestSessions.length > 0 && (
+            {/* {harvestSessions.length > 0 && (
                 <div className="flex justify-center">
                     <Button
                         onClick={() => console.log('Cargar más lotes (simulado)')}
@@ -101,7 +100,7 @@ const SessionSection: FC<SessionSectionProps> = ({ harvestSessions, onViewLot, l
                         Cargar más Lotes
                     </Button>
                 </div>
-            )}
+            )} */}
         </div>
     );
 };

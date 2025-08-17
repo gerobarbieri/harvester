@@ -12,7 +12,7 @@ interface DesktopHeaderProps {
 export const DesktopHeader: React.FC<DesktopHeaderProps> = ({ isUserMenuOpen, setIsUserMenuOpen, menuRef }) => {
     const { logout } = useAuth();
     return (
-        <div className="hidden lg:flex items-center justify-between p-6 bg-primary rounded-bl-1xl">
+        <div className="hidden lg:flex items-center justify-between p-6 bg-secondary rounded-bl-1xl">
             <h1 className="text-white text-3xl font-semibold">Hallmay</h1>
             <div className="flex items-center space-x-4">
                 <a

@@ -1,5 +1,6 @@
 import { LogOut, User } from "lucide-react";
 import useAuth from "../../../../context/auth/AuthContext";
+import logo from "../../../../assets/logo.png";
 
 interface MobileHeaderProps {
     isUserMenuOpen: boolean;
@@ -10,11 +11,11 @@ interface MobileHeaderProps {
 export const MobileHeader: React.FC<MobileHeaderProps> = ({ isUserMenuOpen, setIsUserMenuOpen, menuRef }) => {
     const { logout } = useAuth();
     return (
-        <div className="lg:hidden sticky top-0 bg-primary p-4 rounded-b-2xl z-40 shadow-lg">
+        <div className="lg:hidden sticky top-0 bg-secondary p-4 rounded-b-2xl z-40 shadow-lg">
             <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-3">
-                    <div className="bg-primary-darker w-12 h-12 rounded-full flex items-center justify-center">
-                        <span className="text-white font-bold">H</span>
+                    <div className=" w-14 h-14 flex items-center justify-center">
+                        <img src={logo} alt="Logo de Hallmay" className="h-20 w-20 object-contain" />
                     </div>
                     <div>
                         <div className="text-white text-xl font-bold">Hallmay</div>
@@ -23,7 +24,7 @@ export const MobileHeader: React.FC<MobileHeaderProps> = ({ isUserMenuOpen, setI
                 <div ref={menuRef} className="relative">
                     <button
                         onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
-                        className="w-10 h-10 bg-primary-medium rounded-full flex items-center justify-center text-white hover:bg-primary-dark transition-colors"
+                        className="w-10 h-10 bg-primary-darker rounded-full flex items-center justify-center text-white hover:bg-primary-dark transition-colors"
                     >
                         <User size={20} />
                     </button>

@@ -1,44 +1,30 @@
-// src/hooks/useHarvestSessionFilters.ts
-import { useState, useMemo, useEffect } from 'react';
+import { useMemo } from 'react';
 import type { HarvestSession } from '../../types';
+import type { SessionsFiltersProps } from '../../components/harvest-session/ui/Filters';
 
-export const useHarvestSessionFilters = (harvestSessions: HarvestSession[] | null) => {
-    const [filterStatus, setFilterStatus] = useState('Todos');
-    const [filterCrop, setFilterCrop] = useState('Todos');
-
-    // 1. Filtramos la lista base por el estado seleccionado.
-    const harvestSessionsFilteredByStatus = useMemo(() => {
-        if (filterStatus === 'Todos') return harvestSessions;
-        const statusMap = {
-            'Pendientes': 'pending',
-            'En Progreso': 'in-progress',
-            'Finalizados': 'finished'
-        };
-        return harvestSessions.filter(p => p.status === statusMap[filterStatus]);
-    }, [harvestSessions, filterStatus]);
-
-    const cropNames = useMemo(() => {
-        const uniqueCrops = new Set(harvestSessionsFilteredByStatus.map(hs => hs.crop.name));
-        return [...Array.from(uniqueCrops).sort()];
-    }, [harvestSessionsFilteredByStatus]);
-
-    useEffect(() => {
-        if (!cropNames.includes(filterCrop)) {
-            setFilterCrop('Todos');
-        }
-    }, [cropNames, filterCrop]);
-
+export const useHarvestSessionFilters = (
+    sessions: HarvestSession[] | null,
+    filters: SessionsFiltersProps
+) => {
     const filteredSessions = useMemo(() => {
-        if (filterCrop === 'Todos') return harvestSessionsFilteredByStatus;
-        return harvestSessionsFilteredByStatus.filter(hs => hs.crop.name === filterCrop);
-    }, [harvestSessionsFilteredByStatus, filterCrop]);
+        if (!sessions) {
+            return [];
+        }
+
+        let tempSessions = [...sessions];
+
+        if (filters.field !== 'all') {
+            tempSessions = tempSessions.filter(session => session.field.id === filters.field);
+        }
+
+        if (filters.crop !== 'all') {
+            tempSessions = tempSessions.filter(session => session.crop.id === filters.crop);
+        }
+
+        return tempSessions;
+    }, [sessions, filters]);
 
     return {
-        filteredSessions,
-        filterStatus,
-        setFilterStatus,
-        cropNames,
-        filterCrop,
-        setFilterCrop
+        filteredSessions
     };
 };

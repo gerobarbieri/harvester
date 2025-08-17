@@ -22,7 +22,7 @@ const EditManagerModal: FC<{
     const handleEditManagerSubmit = async (data: { managerId: string }) => {
         try {
             const selectedManager = harvestManagers?.find(m => m.id === data.managerId);
-            updateHarvestManager(session.id, selectedManager)
+            updateHarvestManager(session.id, { id: selectedManager.id, name: selectedManager.name })
             onClose();
         } catch (error) {
             console.error('Error al cambiar el responsable:', error);

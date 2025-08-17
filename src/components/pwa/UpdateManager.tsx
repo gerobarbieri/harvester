@@ -1,9 +1,6 @@
-import { useEffect } from 'react';
 import { useRegisterSW } from 'virtual:pwa-register/react';
-import { useSync } from '../../context/sync/SyncProvider';
 
 function UpdateManager() {
-    const { triggerSync } = useSync();
     const {
         needRefresh: [needRefresh],
         updateServiceWorker,
@@ -11,25 +8,8 @@ function UpdateManager() {
         onRegistered(r) {
             console.log('Service Worker registered. Checking for updates and data...');
             r?.update();
-            // triggerSync();
         },
     });
-
-    useEffect(() => {
-        const handleActivity = () => {
-            if (document.visibilityState === 'visible' && navigator.onLine) {
-                console.log('App is visible and online. Triggering sync...');
-                // triggerSync();
-            }
-        };
-        document.addEventListener('visibilitychange', handleActivity);
-        window.addEventListener('online', handleActivity);
-
-        return () => {
-            document.removeEventListener('visibilitychange', handleActivity);
-            window.removeEventListener('online', handleActivity);
-        };
-    }, [triggerSync]);
 
     if (needRefresh) {
         return (

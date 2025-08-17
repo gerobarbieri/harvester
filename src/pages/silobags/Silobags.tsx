@@ -8,37 +8,35 @@ import { useCampaignFields } from "../../hooks/field/useCampaignFields";
 import { useActiveCampaign } from "../../hooks/campaign/useActiveCampaign";
 import Button from "../../components/commons/Button";
 import { PlusCircle } from "lucide-react";
+import { useCrops } from "../../hooks/crop/useCrops";
+import CreateSiloBagModal from "../../components/silobags/modals/CreateSilobagModal";
+import type { Silobag } from "../../types";
+import ExtractKgsModal from "../../components/silobags/modals/ExtractKgsModal";
+import CloseSiloBagModal from "../../components/silobags/modals/CloseSilobagModal";
 
 const SiloBags = () => {
     const [selectedField, setSelectedField] = useState('todos');
-    const [selectedStatus, setSelectedStatus] = useState('todos');
+    const [selectedCrop, setSelectedCrop] = useState('todos');
+    const [modalState, setModalState] = useState<{ type: 'create' | 'extract' | 'close' | null; data?: Silobag }>({ type: null });
 
     const { campaign } = useActiveCampaign();
     const { campaignFields } = useCampaignFields(campaign?.id);
-    const { siloBags, loading, error } = useSiloBags();
+    const { crops } = useCrops();
+    const { data: siloBags, isLoading, error } = useSiloBags();
 
     // Filtrar silos según criterios seleccionados
     const filteredSiloBags = useMemo(() => {
         if (!siloBags) return [];
 
         return siloBags.filter(silo => {
-            const fieldMatch = selectedField === 'todos' || silo.location?.includes(selectedField);
-            const statusMatch = selectedStatus === 'todos' || silo.status.toLowerCase() === selectedStatus.toLowerCase();
+            const fieldMatch = selectedField === 'todos' || silo.field.id === selectedField;
+            const statusMatch = selectedCrop === 'todos' || silo.crop.id === selectedCrop;
             return fieldMatch && statusMatch;
         });
-    }, [siloBags, selectedField, selectedStatus]);
+    }, [siloBags, selectedField, selectedCrop]);
 
-    const handleExtract = (silo: any) => {
-        // TODO: Implementar lógica de extracción
-        console.log('Extraer de silo:', silo.id);
-    };
 
-    const handleClose = (silo: any) => {
-        // TODO: Implementar lógica de cierre
-        console.log('Cerrar silo:', silo.id);
-    };
-
-    if (loading) {
+    if (isLoading) {
         return (
             <div className="space-y-6">
                 <PageHeader title="Silos" breadcrumbs={[{ label: 'Silos' }]} />
@@ -51,51 +49,78 @@ const SiloBags = () => {
         return (
             <div className="space-y-6">
                 <PageHeader title="Silos" breadcrumbs={[{ label: 'Silos' }]} />
-                <div className="text-center text-red-500 py-8">Error: {error}</div>
+                <div className="text-center text-red-500 py-8">Error: {error.message}</div>
             </div>
         );
     }
 
     return (
-        <div className="space-y-6">
-            <PageHeader title="Silos" breadcrumbs={[{ label: 'Silos' }]}>
-                <div className="w-full md:w-auto">
-                    <Button
-                        className="w-full sm:px-10 sm:py-3 sm:text-base"
-                        icon={PlusCircle}
-                    >
-                        Crear Silobolsa
-                    </Button>
-                </div>
-            </PageHeader>
+        <>
+            <div className="space-y-6">
+                <PageHeader title="Silos" breadcrumbs={[{ label: 'Silos' }]}>
+                    <div className="w-full md:w-auto">
+                        <Button
+                            className="w-full sm:px-10 sm:py-3 sm:text-base"
+                            icon={PlusCircle}
+                            onClick={() => setModalState({ type: 'create' })}
+                        >
+                            Crear Silobolsa
+                        </Button>
+                    </div>
+                </PageHeader>
 
-            <Filters
-                selectedField={selectedField}
-                onFieldChange={setSelectedField}
-                selectedStatus={selectedStatus}
-                onStatusChange={setSelectedStatus}
-                fields={campaignFields || []}
-            />
+                <Filters
+                    selectedField={selectedField}
+                    onFieldChange={setSelectedField}
+                    fields={campaignFields || []}
+                    crops={crops || []}
+                    selectedCrop={selectedCrop}
+                    onCropChange={setSelectedCrop}
+                />
 
-            <div className="max-h-[60vh] overflow-y-auto pr-2">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                    {filteredSiloBags.length > 0 ? (
-                        filteredSiloBags.map(silobag => (
-                            <SiloBagCard
-                                key={silobag.id}
-                                silo={silobag}
-                                onExtract={handleExtract}
-                                onClose={handleClose}
-                            />
-                        ))
-                    ) : (
-                        <div className="col-span-full text-center text-text-secondary py-8">
-                            <p>No se encontraron silos con los filtros seleccionados.</p>
-                        </div>
-                    )}
+                <div className="max-h-[70vh] overflow-y-auto md:max-h-none md:overflow-visible pr-2 md:pr-0">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {filteredSiloBags.length > 0 ? (
+                            filteredSiloBags.map(silobag => (
+                                <SiloBagCard
+                                    key={silobag.id}
+                                    silo={silobag}
+                                    onExtract={() => setModalState({ type: 'extract', data: silobag })}
+                                    onClose={() => setModalState({ type: 'close', data: silobag })}
+                                />
+                            ))
+                        ) : (
+                            <div className="col-span-full text-center text-text-secondary py-8">
+                                <p>No se encontraron silos con los filtros seleccionados.</p>
+                            </div>
+                        )}
+                    </div>
                 </div>
             </div>
-        </div>
+            <CreateSiloBagModal
+                isOpen={modalState.type === 'create'}
+                onClose={() => setModalState({ type: null })}
+                fields={campaignFields || []}
+                crops={crops || []}
+            />
+
+            {
+                modalState.data && (
+                    <>
+                        <ExtractKgsModal
+                            isOpen={modalState.type === 'extract'}
+                            onClose={() => setModalState({ type: null })}
+                            siloBag={modalState.data}
+                        />
+                        <CloseSiloBagModal
+                            isOpen={modalState.type === 'close'}
+                            onClose={() => setModalState({ type: null })}
+                            siloBag={modalState.data}
+                        />
+                    </>
+                )
+            }
+        </>
     )
 };
 
