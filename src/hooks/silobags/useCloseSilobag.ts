@@ -2,6 +2,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { closeSilobag } from '../../services/siloBags';
 import type { Silobag } from '../../types';
+import toast from 'react-hot-toast';
 
 export const useCloseSiloBag = () => {
     const queryClient = useQueryClient();
@@ -29,16 +30,16 @@ export const useCloseSiloBag = () => {
             return { previousSiloBags };
         },
 
-        onError: (err, variables, context) => {
+        onError: (_err, _variables, context) => {
             // Si algo falla, revierte al estado anterior
             if (context?.previousSiloBags) {
                 queryClient.setQueryData(['siloBags'], context.previousSiloBags);
             }
-            // showToast('Error al cerrar el silo.', 'error');
+            toast.error('Error al cerrar el silo.');
         },
 
         onSuccess: () => {
-            // showToast('Silo cerrado con éxito.', 'success');
+            toast.success('Silo cerrado con éxito.');
         },
 
         onSettled: () => {

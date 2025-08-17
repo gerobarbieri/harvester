@@ -45,6 +45,7 @@ const SiloBagDetail: FC = () => {
         default: { icon: ChevronsRight, color: "text-gray-500" },
     };
 
+    console.log(movements);
     return (
         <div className="space-y-6 animate-fade-in">
             <PageHeader title="Detalle de Silo" breadcrumbs={[{ label: `Silo ${siloBag.name}` }]} />
@@ -135,7 +136,7 @@ const SiloBagDetail: FC = () => {
                 <h3 className="text-xl font-bold text-text-primary mb-4">Historial de Movimientos</h3>
                 <div className="hidden md:block">
                     <div className="divide-y divide-gray-100">
-                        {movements.map((mov: SilobagMovement) => {
+                        {movements.length > 0 && movements.map((mov: SilobagMovement) => {
                             const visual = movementVisuals[mov.type] || movementVisuals.default;
                             const Icon = visual.icon;
                             return (
@@ -146,7 +147,7 @@ const SiloBagDetail: FC = () => {
                                     </div>
                                     <div className="flex-1">
                                         <p className="font-medium text-text-primary">{mov.details || "Sin descripción"}</p>
-                                        <p className="text-sm text-text-secondary">{mov.date.toDate().toLocaleDateString('es-AR', { day: '2-digit', month: 'long', year: 'numeric' })}</p>
+                                        <p className="text-sm text-text-secondary">{mov.date.toLocaleDateString('es-AR')}</p>
                                     </div>
                                     <div className="text-right">
                                         <p className={`text-lg font-bold ${mov.kg_change > 0 ? 'text-green-600' : 'text-red-600'}`}>{mov.kg_change > 0 ? '+' : ''}{formatNumber(mov.kg_change)}</p>
@@ -159,10 +160,10 @@ const SiloBagDetail: FC = () => {
                 </div>
                 <div className="md:hidden">
                     <div className="relative border-l-2 border-gray-200 ml-3 space-y-8">
-                        {movements.map((mov: SilobagMovement) => (
+                        {movements.length > 0 && movements.map((mov: SilobagMovement) => (
                             <div key={mov.id} className="relative pl-8">
                                 <div className={`absolute -left-[11px] top-1 w-5 h-5 rounded-full flex items-center justify-center ${(mov.kg_change > 0) ? 'bg-green-500' : 'bg-red-500'}`}>{(mov.kg_change > 0) ? <ArrowDown size={12} className="text-white" /> : <ArrowUp size={12} className="text-white" />}</div>
-                                <div className="flex justify-between items-center"><span className="font-semibold text-text-primary"><MovementTypeBadge type={mov.type} /></span><span className="text-xs text-text-secondary">{mov.date.toDate().toLocaleDateString('es-AR')}</span></div>
+                                <div className="flex justify-between items-center"><span className="font-semibold text-text-primary"><MovementTypeBadge type={mov.type} /></span><span className="text-xs text-text-secondary">{mov.date.toLocaleDateString('es-AR')}</span></div>
                                 <p className={`font-bold text-2xl mt-1 ${mov.kg_change > 0 ? 'text-green-600' : 'text-red-600'}`}>{mov.kg_change > 0 ? '+' : ''}{formatNumber(mov.kg_change)} kgs</p>
                                 <p className="text-sm text-text-secondary mt-1">{mov.details}</p>
                             </div>
@@ -171,7 +172,7 @@ const SiloBagDetail: FC = () => {
                 </div>
                 <div className="mt-6 flex justify-center">
                     {hasMore && (
-                        <Button variant="secondary" onClick={fetchMore} isLoading={loadingMore}>
+                        <Button variant="secondary" onClick={() => fetchMore()} isLoading={loadingMore}>
                             Cargar más
                         </Button>
                     )}

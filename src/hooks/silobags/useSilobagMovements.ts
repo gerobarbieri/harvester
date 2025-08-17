@@ -1,70 +1,71 @@
-
-// src/hooks/silobags/useSiloBagMovements.ts (Versión con Paginado)
-import { useState, useEffect } from 'react';
-import { collection, query, orderBy, limit, startAfter, getDocs, type DocumentData, QueryDocumentSnapshot, where } from 'firebase/firestore';
+import { useInfiniteQuery } from '@tanstack/react-query';
+import { collection, query, orderBy, limit, startAfter, getDocs, where, type QueryDocumentSnapshot, type DocumentData } from 'firebase/firestore';
 import { db } from '../../firebase/firebase';
 import useAuth from '../../context/auth/AuthContext';
+import type { SilobagMovement } from '../../types';
 
-const PAGE_SIZE = 15; // Cantidad de movimientos a cargar por página
+const PAGE_SIZE = 15;
+
+const fetchMovementsPage = async ({ pageParam, queryKey }: { pageParam: QueryDocumentSnapshot<DocumentData> | null, queryKey: any[] }) => {
+    // 1. Destructuramos los IDs directamente de la queryKey
+    const [_key, siloBagId, organizationId] = queryKey;
+
+    const collectionRef = collection(db, `silo_bags/${siloBagId}/movements`);
+
+    let q = query(
+        collectionRef,
+        where('organization_id', '==', organizationId),
+        orderBy("date", "desc"),
+        limit(PAGE_SIZE)
+    );
+
+    if (pageParam) {
+        q = query(q, startAfter(pageParam));
+    }
+
+    const docSnap = await getDocs(q);
+
+    const movementsData: SilobagMovement[] = docSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as SilobagMovement));
+
+    return {
+        data: movementsData,
+        nextCursor: docSnap.docs[docSnap.docs.length - 1],
+    };
+};
 
 export const useSiloBagMovements = (siloBagId?: string) => {
     const { currentUser } = useAuth();
-    const [movements, setMovements] = useState<any[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [loadingMore, setLoadingMore] = useState(false);
-    const [error, setError] = useState<Error | null>(null);
-    const [lastVisible, setLastVisible] = useState<QueryDocumentSnapshot<DocumentData> | null>(null);
-    const [hasMore, setHasMore] = useState(true);
+    const organizationId = currentUser?.organizationId;
 
-    const fetchMovements = async (siloId: string) => {
-        setLoading(true);
-        try {
-            const collectionRef = collection(db, `silo_bags/${siloId}/movements`);
-            const q = query(collectionRef, orderBy("date", "desc"), where('organization_id', '==', currentUser.organizationId), limit(PAGE_SIZE));
-            const docSnap = await getDocs(q);
+    const {
+        data,
+        error,
+        fetchNextPage,
+        hasNextPage,
+        isLoading,
+        isFetchingNextPage
+    } = useInfiniteQuery({
 
-            const movementsData: any[] = [];
-            docSnap.forEach(doc => movementsData.push({ id: doc.id, ...doc.data() }));
+        queryKey: ['siloBagMovements', siloBagId, organizationId],
 
-            setMovements(movementsData);
-            setLastVisible(docSnap.docs[docSnap.docs.length - 1]);
-            setHasMore(docSnap.docs.length === PAGE_SIZE);
-        } catch (err: any) {
-            setError(err);
-        } finally {
-            setLoading(false);
-        }
+        queryFn: fetchMovementsPage,
+
+        getNextPageParam: (lastPage) => {
+            return lastPage.nextCursor || undefined;
+        },
+        initialPageParam: null,
+
+        enabled: !!siloBagId && !!organizationId,
+    });
+
+    const movements = data?.pages?.flatMap(page => page.data) ?? [];
+
+    return {
+        movements,
+        loading: isLoading,
+        loadingMore: isFetchingNextPage,
+        error: error as Error | null,
+        fetchMore: fetchNextPage,
+        hasMore: !!hasNextPage,
     };
-
-    useEffect(() => {
-        if (siloBagId) {
-            fetchMovements(siloBagId);
-        } else {
-            setMovements([]);
-            setLoading(false);
-        }
-    }, [siloBagId]);
-
-    const fetchMore = async () => {
-        if (!siloBagId || !lastVisible || !hasMore) return;
-        setLoadingMore(true);
-        try {
-            const collectionRef = collection(db, `silo_bags/${siloBagId}/movements`);
-            const q = query(collectionRef, orderBy("date", "desc"), where('organization_id', '==', currentUser.organizationId), startAfter(lastVisible), limit(PAGE_SIZE));
-            const docSnap = await getDocs(q);
-
-            const newMovements: any[] = [];
-            docSnap.forEach(doc => newMovements.push({ id: doc.id, ...doc.data() }));
-
-            setMovements(prev => [...prev, ...newMovements]);
-            setLastVisible(docSnap.docs[docSnap.docs.length - 1]);
-            setHasMore(docSnap.docs.length === PAGE_SIZE);
-        } catch (err: any) {
-            setError(err);
-        } finally {
-            setLoadingMore(false);
-        }
-    };
-
-    return { movements, loading, loadingMore, error, fetchMore, hasMore };
 };

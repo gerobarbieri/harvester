@@ -5,9 +5,10 @@ import Input from "../../commons/form/Input";
 import Select from "../../commons/form/Select";
 import Modal from "../../commons/Modal";
 import TextArea from '../../commons/form/TextArea';
-import type { CampaignField, Crop } from "../../../types";
+import type { CampaignField, Crop, Silobag } from "../../../types";
 import { createSilobag } from '../../../services/siloBags';
 import useAuth from '../../../context/auth/AuthContext';
+import { useCreateSiloBag } from '../../../hooks/silobags/useCreateSilobag';
 
 interface CreateSiloBagModalProps {
     isOpen: boolean;
@@ -20,7 +21,10 @@ const CreateSiloBagModal: React.FC<CreateSiloBagModalProps> = ({ isOpen, onClose
     const { register, control, handleSubmit, formState: { errors, isSubmitting }, reset } = useForm();
     const { currentUser } = useAuth();
 
-    const onSubmit = async (data: any) => {
+
+    const createMutation = useCreateSiloBag();
+
+    const onSubmit = (data: any) => {
         const { name, fieldId, cropId, initialKg, details, location } = data;
         const field = fields.find(cf => cf.field.id === fieldId)?.field;
         const crop = crops.find(c => c.id === cropId);
@@ -33,15 +37,10 @@ const CreateSiloBagModal: React.FC<CreateSiloBagModalProps> = ({ isOpen, onClose
             field: { id: field.id, name: field.name },
             crop: { id: crop.id, name: crop.name },
             details: details
-        };
+        } as Silobag;
 
-        try {
-            createSilobag(newSiloBag);
-            handleClose();
-        } catch (error) {
-            console.error("Error al crear el silo:", error);
-            // Aquí podrías mostrar un toast de error
-        }
+        createMutation.mutate(newSiloBag);
+        handleClose();
     };
 
     const handleClose = () => {

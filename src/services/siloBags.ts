@@ -11,7 +11,7 @@ export const createSilobag = (siloBagData: Partial<Silobag>) => {
         type: "creation",
         organization_id: siloBagData.organization_id,
         kg_change: siloBagData.initial_kg,
-        date: Timestamp.now(),
+        date: new Date(),
         details: siloBagData.details || "Silobolsa creado manualmente."
     };
 

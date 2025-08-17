@@ -108,7 +108,7 @@ export interface Silobag {
 
 export interface SilobagMovement {
     id: string
-    date: Timestamp;
+    date: Date;
     kg_change: number;
     details?: string;
     type: MovementType

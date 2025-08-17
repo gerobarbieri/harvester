@@ -2,7 +2,8 @@
 import { createContext, useState, useContext, useEffect, useCallback, useRef, type ReactNode } from 'react';
 import { primeOfflineCache } from '../../services/priming';
 import useAuth from '../auth/AuthContext';
-import { useToast } from '../../providers/ToastProvider';
+import toast from 'react-hot-toast';
+import { useDeviceType } from '../../hooks/useDeviceType';
 
 interface PrimingMetrics {
     totalQueries: number;
@@ -18,7 +19,6 @@ interface SyncContextType {
     syncError: Error | null;
     syncMetrics: PrimingMetrics | null;
     triggerSync: () => Promise<boolean>;
-    clearSyncError: () => void;
     showRefreshPrompt: boolean;
     setShowRefreshPrompt: (show: boolean) => void;
 }
@@ -26,7 +26,7 @@ interface SyncContextType {
 const SyncContext = createContext<SyncContextType | undefined>(undefined);
 
 // --- CONSTANTES DE ESTRATEGIA DE SYNC ---
-const MANUAL_SYNC_RATE_LIMIT_MS = 1000 * 60 * 60; // 1 minuto para el botón manual
+const MANUAL_SYNC_RATE_LIMIT_MS = 1000 * 60 * 60; // 1 hora para el botón manual
 const RECONNECT_STALE_THRESHOLD_MS = 1000 * 60 * 15; // 15 minutos para reconexión automática
 
 export const SyncProvider = ({ children }: { children: ReactNode }) => {
@@ -39,7 +39,7 @@ export const SyncProvider = ({ children }: { children: ReactNode }) => {
     const [syncMetrics, setSyncMetrics] = useState<PrimingMetrics | null>(null);
     const [showRefreshPrompt, setShowRefreshPrompt] = useState(false);
     const { currentUser } = useAuth();
-    const showToast = useToast();
+    const { isMobileOrTablet } = useDeviceType();
     const lastManualSyncAttempt = useRef<number>(0);
 
     const triggerSync = useCallback(async (isManual = false): Promise<boolean> => {
@@ -48,25 +48,18 @@ export const SyncProvider = ({ children }: { children: ReactNode }) => {
         if (isManual) {
             if (now - lastManualSyncAttempt.current < MANUAL_SYNC_RATE_LIMIT_MS) {
                 const waitTime = Math.ceil((MANUAL_SYNC_RATE_LIMIT_MS - (now - lastManualSyncAttempt.current)) / 1000);
-                showToast(`Ya has sincronizado recientemente. Inténtalo de nuevo en ${waitTime} segundos.`, 'info');
+                toast.error(`Ya has sincronizado recientemente. Inténtalo de nuevo en ${waitTime} segundos.`);
                 return false;
             }
             lastManualSyncAttempt.current = now;
         }
 
-        if (isSyncing) {
-            console.log('🔄 Sincronización ya en progreso.');
-            return false;
-        }
-
+        if (isSyncing) { return false; }
         if (!navigator.onLine) {
-            if (isManual) showToast('No hay conexión a internet. La app funciona con datos locales.', 'warning');
+            if (isManual) toast('No hay conexión. La app funciona con datos locales.', { icon: '🟡' });
             return false;
         }
-        if (!currentUser) {
-            console.log("👤 Usuario no logueado, no se puede sincronizar.");
-            return false;
-        }
+        if (!currentUser) { return false; }
 
         setShowRefreshPrompt(false);
         setIsSyncing(true);
@@ -84,54 +77,50 @@ export const SyncProvider = ({ children }: { children: ReactNode }) => {
             setSyncMetrics(metrics);
 
             console.log(`✅ Sincronización completada.`);
-            if (isManual) showToast('Sincronización manual completada.', 'success');
+            if (isManual) toast.success('Sincronización manual completada.');
             return true;
         } catch (error: any) {
             console.error("🔥 Falló la sincronización:", error);
             setSyncError(error);
-            showToast('Hubo un error durante la sincronización.', 'error');
+            toast.error('Hubo un error durante la sincronización.');
             if (error.metrics) setSyncMetrics(error.metrics);
             return false;
         } finally {
             setIsSyncing(false);
         }
-    }, [currentUser]);
-
-    const clearSyncError = useCallback(() => setSyncError(null), []);
+    }, [currentUser, isSyncing]);
 
     useEffect(() => {
-        if (currentUser && !isSyncing) {
+        if (currentUser && !isSyncing && isMobileOrTablet) {
             const today = new Date().toISOString().split('T')[0];
             const lastSyncDate = localStorage.getItem('lastSyncDate');
             if (today !== lastSyncDate) {
-                console.log('🎯 Primera sincronización del día.');
+                console.log('🎯 MÓVIL: Primera sincronización del día.');
                 triggerSync();
             }
         }
-    }, [currentUser, isSyncing, triggerSync]);
+    }, [currentUser, isSyncing, triggerSync, isMobileOrTablet]);
 
     useEffect(() => {
         const handleOnline = () => {
-            if (currentUser && !isSyncing) {
+            if (currentUser && !isSyncing && isMobileOrTablet) {
                 const timeSinceLastSync = lastSync ? new Date().getTime() - lastSync.getTime() : Infinity;
                 if (timeSinceLastSync > RECONNECT_STALE_THRESHOLD_MS) {
-                    console.log('🌐 Conexión restaurada y datos desactualizados, sincronizando...');
+                    console.log('🌐 MÓVIL: Conexión restaurada y datos desactualizados, sincronizando...');
                     triggerSync();
-                } else {
-                    console.log('🌐 Conexión restaurada, los datos aún son recientes.');
                 }
             }
         };
         window.addEventListener('online', handleOnline);
         return () => window.removeEventListener('online', handleOnline);
-    }, [currentUser, isSyncing, lastSync, triggerSync]);
+    }, [currentUser, isSyncing, lastSync, triggerSync, isMobileOrTablet]);
 
+    // Muestra el banner de actualización al volver a la app
     useEffect(() => {
         const handleVisibilityChange = () => {
             if (document.visibilityState === 'visible' && lastSync && !isSyncing) {
                 const timeSinceLastSync = new Date().getTime() - lastSync.getTime();
                 if (timeSinceLastSync > RECONNECT_STALE_THRESHOLD_MS) {
-                    console.log('Datos posiblemente desactualizados. Mostrando banner de actualización.');
                     setShowRefreshPrompt(true);
                 }
             }
@@ -158,7 +147,6 @@ export const SyncProvider = ({ children }: { children: ReactNode }) => {
         syncError,
         syncMetrics,
         triggerSync: () => triggerSync(true),
-        clearSyncError,
         showRefreshPrompt,
         setShowRefreshPrompt,
     };

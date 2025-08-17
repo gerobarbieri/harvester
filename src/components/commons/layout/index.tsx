@@ -5,8 +5,6 @@ import { MobileHeader } from './mobile/Header';
 import { MobileBottomNav } from './mobile/BottomBar';
 import { DesktopHeader } from './desktop/Header'
 import { Outlet } from 'react-router';
-import RefreshBanner from '../RefreshBanner';
-import SyncIndicator from '../SyncIndicator';
 
 const navItems = [
     { name: 'Cosecha', icon: Tractor, path: '/' },
@@ -63,7 +61,7 @@ const Layout: React.FC = () => {
                         menuRef={menuRef}
                     />
                 </header>
-                <RefreshBanner />
+                {/* <RefreshBanner /> */}
                 <main className="flex-1 overflow-y-auto p-4 lg:p-6 pb-24 lg:pb-6">
                     <div className="mx-auto w-full">
                         <Outlet />
@@ -74,7 +72,6 @@ const Layout: React.FC = () => {
                     navItems={navItems}
                 />
             </div>
-            <SyncIndicator />
         </div>
     );
 };
