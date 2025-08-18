@@ -101,10 +101,22 @@ const CreateSiloBagModal: React.FC<CreateSiloBagModalProps> = ({
                 <Input label="Ubicacion" {...register("location")} />
                 <TextArea label="Descripción / Motivo (Opcional)" {...register("details")} />
 
-                <div className="flex justify-end gap-3 pt-4">
-                    <Button variant="outline" type="button" onClick={onClose}>Cancelar</Button>
-                    <Button variant="primary" type="submit" isLoading={isSubmitting}>
-                        {isSubmitting ? 'Guardando...' : 'Crear Silo'}
+                <div className="flex gap-3 pt-4 border-t border-gray-100">
+                    <Button
+                        className="w-[30%]"
+                        variant="outline"
+                        type="button"
+                        onClick={onClose}
+                    >
+                        Cancelar
+                    </Button>
+                    <Button
+                        className="w-[70%]"
+                        variant="primary"
+                        type="submit"
+                        isLoading={isSubmitting}
+                    >
+                        Crear Silo
                     </Button>
                 </div>
             </form>

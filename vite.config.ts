@@ -18,23 +18,25 @@ export default defineConfig({
     VitePWA({
       registerType: 'prompt',
       includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'masked-icon.svg', 'logo.png'],
-      workbox: {},
+      workbox: {
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,jpg,jpeg,gif}'],
+      },
       manifest: {
-        name: "Hallmay Harvest App",
+        name: "Hallmay Harvest Control",
         short_name: "Hallmay",
-        description: "Aplicación de gestión de cosecha",
+        description: "Harvest Control",
         start_url: "/",
         display: "standalone",
         background_color: "#ffffff",
-        theme_color: "#2A6449",
+        theme_color: "#111827",
         icons: [
           {
-            src: 'harvester-s.png',
+            src: 'logo.png',
             sizes: '192x192',
             type: 'image/png'
           },
           {
-            src: 'harvester.png',
+            src: 'logo.png',
             sizes: '512x512',
             type: 'image/png'
           }

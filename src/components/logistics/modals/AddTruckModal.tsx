@@ -19,7 +19,7 @@ const AddTruckModal: FC<{
     suggestedOrderNumber: string;
 }> = ({ isOpen, onClose, fields, crops, suggestedOrderNumber }) => {
     console.log(suggestedOrderNumber)
-    const { control, register, handleSubmit, formState: { errors, isSubmitting }, reset } = useForm({
+    const { control, register, handleSubmit, formState: { errors }, reset } = useForm({
         defaultValues: {
             order: suggestedOrderNumber,
             date: new Date(),
@@ -90,9 +90,22 @@ const AddTruckModal: FC<{
                     <Input label="Empresa de Transporte" {...register("company")} />
                     <Input label="Conductor" {...register("driver", { required: "El nombre del chofer es obligatorio." })} error={errors.driver?.message as string} />
                 </div>
-                <div className="flex justify-end gap-3 pt-4">
-                    <Button variant="outline" type="button" onClick={onClose}>Cancelar</Button>
-                    <Button variant="primary" type="submit" isLoading={isSubmitting}>Agregar Orden</Button>
+                <div className="flex gap-3 pt-4 border-t border-gray-100">
+                    <Button
+                        className="w-[30%]"
+                        variant="outline"
+                        type="button"
+                        onClick={onClose}
+                    >
+                        Cancelar
+                    </Button>
+                    <Button
+                        className="w-[70%]"
+                        variant="primary"
+                        type="submit"
+                    >
+                        Agregar Orden
+                    </Button>
                 </div>
             </form>
         </Modal>

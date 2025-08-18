@@ -104,11 +104,22 @@ const ExtractKgsModal: React.FC<ExtractKgsModalProps> = ({ isOpen, onClose, silo
                         />
                     )}
                 />
-
-                <div className="flex justify-end gap-3 pt-4">
-                    <Button variant="outline" type="button" onClick={onClose}>Cancelar</Button>
-                    {/* El botón se deshabilita si excede el total para evitar envíos incorrectos */}
-                    <Button variant="primary" type="submit" isLoading={isSubmitting} disabled={exceedsAvailable}>
+                <div className="flex gap-3 pt-4 border-t border-gray-100">
+                    <Button
+                        className="w-[30%]"
+                        variant="outline"
+                        type="button"
+                        onClick={onClose}
+                    >
+                        Cancelar
+                    </Button>
+                    <Button
+                        className="w-[70%]"
+                        variant="primary"
+                        type="submit"
+                        isLoading={isSubmitting}
+                        disabled={exceedsAvailable}
+                    >
                         Confirmar Extracción
                     </Button>
                 </div>
