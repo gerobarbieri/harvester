@@ -5,49 +5,40 @@ import { BrowserRouter } from "react-router";
 import { AuthProvider } from './context/auth/AuthContext.tsx';
 import UpdateManager from './components/pwa/UpdateManager.tsx';
 import { SyncProvider } from './context/sync/SyncProvider.tsx';
-import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
-import { persister, queryClient } from './lib/queryClient.ts';
-import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { Toaster } from 'react-hot-toast';
 
 createRoot(document.getElementById('root')!).render(
   <AuthProvider>
     <SyncProvider>
-      <PersistQueryClientProvider
-        client={queryClient}
-        persistOptions={{ persister }}
-      >
-        <UpdateManager />
-        <BrowserRouter>
-          <App />
-        </BrowserRouter>
-        <Toaster
-          position="top-right"
-          toastOptions={{
-            duration: 4000,
-            // Estilos base para todos los toasts
-            style: {
-              background: 'var(--color-surface)',
-              color: 'var(--color-text-primary)',
-              border: '1px solid #e5e7eb',
-              boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)',
-              fontWeight: '600',
-            },
-            // Estilos específicos por tipo
-            success: {
-              iconTheme: { primary: 'var(--color-primary-dark)', secondary: 'white' },
-            },
-            error: {
-              iconTheme: { primary: '#ef4444', secondary: 'white' },
-            },
-            // Nuevo estilo para 'warning' (amarillo)
-            custom: {
-              iconTheme: { primary: '#f59e0b', secondary: 'white' },
-            }
-          }}
-        />
-        <ReactQueryDevtools initialIsOpen={false} />
-      </PersistQueryClientProvider>
+      <UpdateManager />
+      <BrowserRouter>
+        <App />
+      </BrowserRouter>
+      <Toaster
+        position="top-right"
+        toastOptions={{
+          duration: 4000,
+          // Estilos base para todos los toasts
+          style: {
+            background: 'var(--color-surface)',
+            color: 'var(--color-text-primary)',
+            border: '1px solid #e5e7eb',
+            boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)',
+            fontWeight: '600',
+          },
+          // Estilos específicos por tipo
+          success: {
+            iconTheme: { primary: 'var(--color-primary-dark)', secondary: 'white' },
+          },
+          error: {
+            iconTheme: { primary: '#ef4444', secondary: 'white' },
+          },
+          // Nuevo estilo para 'warning' (amarillo)
+          custom: {
+            iconTheme: { primary: '#f59e0b', secondary: 'white' },
+          }
+        }}
+      />
     </SyncProvider>
   </AuthProvider>
 )

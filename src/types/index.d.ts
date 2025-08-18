@@ -9,7 +9,7 @@ export interface User {
 export interface Campaign {
     id: string;
     name: string;
-    start_date: string;
+    start_date: Timestamp;
     active: boolean;
     organization_id: string;
 }
@@ -90,7 +90,7 @@ export interface Silobag {
     name: string;
     organization_id: string;
     created_at?: Timestamp;
-    current_kg: number;
+    current_kg?: number;
     initial_kg: number;
     lost_kg: number;
     crop: {
@@ -108,7 +108,8 @@ export interface Silobag {
 
 export interface SilobagMovement {
     id: string
-    date: Date;
+    organization_id: string;
+    date: Timestamp;
     kg_change: number;
     details?: string;
     type: MovementType
@@ -134,9 +135,10 @@ export interface HarvestSessionRegister {
 
 export interface Logistics {
     id: string;
+    order: number;
     organization_id: string;
     status: string;
-    date: string;
+    date: Timestamp;
     driver: string;
     company: string;
     crop: {

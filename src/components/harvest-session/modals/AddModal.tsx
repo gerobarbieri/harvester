@@ -17,6 +17,7 @@ import useAuth from '../../../context/auth/AuthContext';
 import { useEffect } from 'react';
 import { Timestamp } from 'firebase/firestore';
 import { useActiveCampaign } from '../../../hooks/campaign/useActiveCampaign';
+import toast from 'react-hot-toast';
 
 interface AddModalProps {
     isOpen: boolean;
@@ -96,20 +97,13 @@ const AddModal = ({ isOpen, onClose, showToast }: AddModalProps) => {
             const selectedCrop = crops?.find(c => c.id === data.cropId);
             const selectedManager = harvestManagers?.find(m => m.id === data.managerId);
 
-            if (!selectedField || !selectedPlot || !selectedCrop || !selectedManager) {
-                showToast('Error: Faltan datos en el formulario.', 'error');
-                return;
-            }
-
             const selectedHarvesters = data.harvesters
                 .map(h => {
                     const harvesterData = harvesters?.find(harv => harv.id === h.harvesterId);
-                    if (!harvesterData) return null;
                     return { id: harvesterData.id, name: harvesterData.name, map_plot: h.maps, harvested_hectares: 0 }
                 });
 
             if (selectedHarvesters.length !== data.harvesters.length) {
-                showToast('Error: Uno de los cosecheros seleccionados no es válido.', 'error');
                 return;
             }
 
@@ -122,17 +116,17 @@ const AddModal = ({ isOpen, onClose, showToast }: AddModalProps) => {
                 hectares: data.hectares,
                 estimated_yield: data.estimatedYield,
                 campaign: { id: campaign.id, name: campaign.name },
-                date: Timestamp.fromDate(new Date()),
+                date: Timestamp.now(),
                 organization_id: currentUser.organizationId
             };
 
             startHarvestSession(hsData);
 
-            showToast('Lote iniciado en cosecha exitosamente!', 'success');
+            toast.success('Lote iniciado en cosecha exitosamente!');
             reset();
             onClose();
         } catch (error) {
-            showToast('Error al iniciar cosecha del lote', 'error');
+            toast.error('Error al iniciar cosecha del lote');
             console.error('Error:', error);
         }
     };

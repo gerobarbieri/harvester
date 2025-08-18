@@ -5,14 +5,10 @@ import {
     where,
     getDocs,
     orderBy,
-    Timestamp,
-    limit,
-    QuerySnapshot,
-    type DocumentData
+    limit
 } from "firebase/firestore";
 import { db } from "../firebase/firebase";
 import { chunkArray } from "../firebase/utils";
-import { queryClient } from "../lib/queryClient";
 
 interface PrimingMetrics {
     totalQueries: number;
@@ -22,12 +18,6 @@ interface PrimingMetrics {
     errors: string[];
     timings: Record<string, number>;
 }
-
-const processAndCache = (queryKey: any[], snapshot: QuerySnapshot<DocumentData>) => {
-    const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-    queryClient.setQueryData(queryKey, data);
-    return data;
-};
 
 class PrimingService {
     private metrics: PrimingMetrics = {
@@ -40,96 +30,152 @@ class PrimingService {
     };
 
     async prime(organizationId: string, userRole: string, userId: string): Promise<PrimingMetrics> {
-        if (!organizationId || !userRole || !userId) {
-            console.warn("Priming cancelado: Faltan datos de usuario (organizationId, userRole, o userId).");
-            this.metrics.stage = 'aborted';
-            this.metrics.errors.push("Datos de usuario incompletos.");
-            return this.metrics;
-        }
         const startTime = Date.now();
         console.time("Priming");
-        console.log(`🌍 Priming optimizado iniciado para rol: ${userRole}`);
+        console.log(`🌍 Priming optimizado - ${userRole}`);
+
         this.resetMetrics();
 
         try {
-            // --- PRIMERA RONDA: DATOS GLOBALES Y DE CAMPAÑA ACTIVA ---
             const megaStart = Date.now();
             const [
-                campaignSnap,
-                cropsSnap,
-                harvestersSnap,
-                destinationsSnap,
-                usersSnap,
-                activeSessionsSnap,
-                finishedSessionsSnap
+                activeCampaign,
+                _crops,
+                _harvesters,
+                _destinations,
+                _users,
+                activeSessions,
+                finishedSessions
             ] = await Promise.all([
-                this.queryWithMetrics(() => getDocs(query(collection(db, 'campaigns'), where('organization_id', '==', organizationId), where('active', '==', true), limit(1))), 'campaign'),
-                this.queryWithMetrics(() => getDocs(query(collection(db, 'crops'), where('organization_id', '==', organizationId))), 'crops'),
-                this.queryWithMetrics(() => getDocs(query(collection(db, 'harvesters'), where('organization_id', '==', organizationId))), 'harvesters'),
-                this.queryWithMetrics(() => getDocs(query(collection(db, 'destinations'), where('organization_id', '==', organizationId))), 'destinations'),
-                this.queryWithMetrics(() => getDocs(query(collection(db, 'users'), where('organization_id', '==', organizationId))), 'users'),
-                this.queryWithMetrics(() => getDocs(query(collection(db, 'harvest_sessions'), where('organization_id', '==', organizationId), where('status', 'in', ['pending', 'in-progress']), orderBy('date', 'desc'))), 'active_sessions'),
-                this.queryWithMetrics(() => getDocs(query(collection(db, 'harvest_sessions'), where('organization_id', '==', organizationId), where('status', '==', 'finished'), where('date', '>=', Timestamp.fromDate(new Date(Date.now() - 30 * 24 * 60 * 60 * 1000))), orderBy('date', 'desc'))), 'finished_sessions')
+                // Campaign (1 query)
+                this.queryWithMetrics(
+                    () => getDocs(query(
+                        collection(db, 'campaigns'),
+                        where('organization_id', '==', organizationId),
+                        where('active', '==', true),
+                        limit(1)
+                    )),
+                    'campaign'
+                ),
+
+                // Catálogos (3 queries)
+                this.queryWithMetrics(
+                    () => getDocs(query(
+                        collection(db, 'crops'),
+                        where('organization_id', '==', organizationId)
+                    )),
+                    'crops'
+                ),
+
+                this.queryWithMetrics(
+                    () => getDocs(query(
+                        collection(db, 'harvesters'),
+                        where('organization_id', '==', organizationId)
+                    )),
+                    'harvesters'
+                ),
+
+                this.queryWithMetrics(
+                    () => getDocs(query(
+                        collection(db, 'destinations'),
+                        where('organization_id', '==', organizationId)
+                    )),
+                    'destinations'
+                ),
+
+                // Users (1 query)
+                this.queryWithMetrics(
+                    () => getDocs(query(
+                        collection(db, 'users'),
+                        where('organization_id', '==', organizationId)
+                    )),
+                    'users'
+                ),
+
+                this.queryWithMetrics(
+                    () => getDocs(query(
+                        collection(db, 'harvest_sessions'),
+                        where('organization_id', '==', organizationId),
+                        where('status', 'in', ['pending', 'in-progress']),
+                        orderBy('date', 'desc')
+                    )),
+                    'active_sessions'
+                ),
+
+                this.queryWithMetrics(
+                    () => getDocs(query(
+                        collection(db, 'harvest_sessions'),
+                        where('organization_id', '==', organizationId),
+                        where('status', '==', 'finished'),
+                        where('date', '>=', new Date(Date.now())),
+                        orderBy('date', 'desc')
+                    )),
+                    'finished_sessions'
+                )
             ]);
+
             this.metrics.timings['parallel'] = Date.now() - megaStart;
 
-            // --- PROCESADO Y CACHEO DE LA PRIMERA RONDA ---
-            const activeCampaign = campaignSnap.docs[0] ? { id: campaignSnap.docs[0].id, ...campaignSnap.docs[0].data() } as any : null;
-            queryClient.setQueryData(['activeCampaign', organizationId], activeCampaign);
+            // Procesar results
+            const campaign = activeCampaign.docs[0] ? {
+                id: activeCampaign.docs[0].id,
+                ...activeCampaign.docs[0].data()
+            } : null;
 
-            processAndCache(['crops', organizationId], cropsSnap);
-            processAndCache(['harvesters', organizationId], harvestersSnap);
-            processAndCache(['destinations', organizationId], destinationsSnap);
-            processAndCache(['users', organizationId], usersSnap);
-
-            if (!activeCampaign) {
-                console.log("⚠️ No hay campaña activa, priming finalizado.");
+            if (!campaign) {
+                console.log("⚠️ No hay campaña activa");
                 this.finishMetrics(startTime);
                 return this.metrics;
             }
 
             const allSessions = [
-                ...activeSessionsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })),
-                ...finishedSessionsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }))
+                ...activeSessions.docs.map(doc => ({ id: doc.id, ...doc.data() })),
+                ...finishedSessions.docs.map(doc => ({ id: doc.id, ...doc.data() }))
             ];
-            queryClient.setQueryData(['harvestSessionsByCampaign', activeCampaign.id], allSessions);
 
-            // --- SEGUNDA RONDA: DATOS DEPENDIENTES DE LA CAMPAÑA Y SESIONES ---
-            const relevantFieldIds = [...new Set(allSessions.map((s: any) => s.field.id))];
+            const relevantFieldIds = [...new Set(allSessions.map(s => s.field.id))];
+            console.log(`🔄 ${allSessions.length} sessions en ${relevantFieldIds.length} fields únicos`);
+
             const secondStart = Date.now();
-            const [campaignFieldsSnap, plotsSnap, siloBagsSnap] = await Promise.all([
-                this.loadCampaignFields(organizationId, activeCampaign.id, userRole, userId),
+            const [_campaignFields, _plots, siloBags] = await Promise.all([
+                this.loadCampaignFields(organizationId, campaign.id, userRole, userId),
                 this.loadPlots(organizationId, relevantFieldIds),
-                this.queryWithMetrics(() => getDocs(query(collection(db, 'silo_bags'), where('organization_id', '==', organizationId), where('status', '==', 'active'), limit(20))), 'silo_bags')
+                this.queryWithMetrics(
+                    () => getDocs(query(
+                        collection(db, 'silo_bags'),
+                        where('organization_id', '==', organizationId),
+                        where('status', '==', 'active'),
+                        limit(15)
+                    )),
+                    'silo_bags'
+                )
             ]);
-
-            processAndCache(['campaignFields', activeCampaign.id], campaignFieldsSnap);
-            processAndCache(['siloBags', organizationId], siloBagsSnap);
-
-            const allPlots = plotsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-            relevantFieldIds.forEach(fieldId => {
-                const plotsForField = allPlots.filter((p: any) => p.field.id === fieldId);
-                queryClient.setQueryData(['plots', fieldId], plotsForField);
-            });
-
             this.metrics.timings['second_parallel'] = Date.now() - secondStart;
 
-            // --- TERCERA RONDA: SUBCOLECCIONES CRÍTICAS ---
             const thirdStart = Date.now();
-            await this.loadCriticalSubcollections(organizationId, allSessions, siloBagsSnap);
+
+            await this.loadCriticalSubcollections(organizationId, allSessions, siloBags);
             this.metrics.timings['third_subcollections'] = Date.now() - thirdStart;
 
             this.finishMetrics(startTime);
             console.timeEnd("Priming");
 
-            console.log(`🌍 Priming completado: ${this.metrics.totalQueries} queries, ${this.metrics.totalDocuments} docs, ${this.metrics.duration}ms`);
+            console.table({
+                'Paralelo (7 queries)': `${this.metrics.timings.parallel}ms`,
+                'Segunda ronda (3 queries)': `${this.metrics.timings.second_parallel}ms`,
+                'Subcollecciones': `${this.metrics.timings.third_subcollections}ms`,
+                'TOTAL': `${this.metrics.duration}ms`
+            });
+
+            console.log(`🌍 Priming de alta latencia: ${this.metrics.totalQueries} queries, ${this.metrics.totalDocuments} docs, ${this.metrics.duration}ms`);
+
             return this.metrics;
 
         } catch (error: any) {
             this.metrics.duration = Date.now() - startTime;
             this.metrics.stage = 'error';
             this.metrics.errors.push(error.message);
-            console.error("🔥 Error crítico durante el priming:", error);
+            console.error("🔥 Error en priming de alta latencia:", error);
             throw error;
         }
     }
@@ -212,22 +258,46 @@ class PrimingService {
      * Solo subcollecciones CRÍTICAS para minimizar queries
      */
     private async loadCriticalSubcollections(organizationId: string, sessions: any[], siloBagsSnap: any) {
-        if (sessions.length === 0) return;
+
+        if (sessions.length === 0) {
+            console.log("📝 No hay sesiones activas, saltando registros");
+            return;
+        }
 
         const registerPromises = sessions.map(session =>
-            this.queryWithMetrics(() => getDocs(query(collection(db, 'harvest_sessions', session.id, 'registers'), where('organization_id', '==', organizationId), limit(50))), `registers_${session.id}`)
-                .then(snap => processAndCache(['harvestSessionRegisters', session.id], snap))
-                .catch(error => { console.warn(`Error al cargar registros para ${session.id}:`, error.message); return []; })
+            this.queryWithMetrics(
+                () => getDocs(query(
+                    collection(db, 'harvest_sessions', session.id, 'registers'),
+                    where('organization_id', '==', organizationId),
+                    limit(50)
+                )),
+                `registers_critical_${session.id}`
+            ).catch(error => {
+                console.warn(`Error registros ${session.id}:`, error.message);
+                return { docs: [] };
+            })
         );
 
-        const limitedSiloBags = siloBagsSnap.docs.slice(0, 20);
+        // Movimientos solo de algunos silo bags
+        const limitedSiloBags = siloBagsSnap.docs.slice(0, 15); // Solo 5 silo bags
         const movementPromises = limitedSiloBags.map(siloDoc =>
-            this.queryWithMetrics(() => getDocs(query(collection(db, 'silo_bags', siloDoc.id, 'movements'), where('organization_id', '==', organizationId), orderBy('date', 'desc'), limit(20))), `movements_${siloDoc.id}`)
-                .then(snap => processAndCache(['siloBagMovements', siloDoc.id], snap))
-                .catch(error => { console.warn(`Error al cargar movimientos para ${siloDoc.id}:`, error.message); return []; })
+            this.queryWithMetrics(
+                () => getDocs(query(
+                    collection(db, 'silo_bags', siloDoc.id, 'movements'),
+                    where('organization_id', '==', organizationId),
+                    orderBy('date', 'desc'),
+                    limit(20)
+                )),
+                `movements_critical_${siloDoc.id}`
+            ).catch(error => {
+                console.warn(`Error movimientos ${siloDoc.id}:`, error.message);
+                return { docs: [] };
+            })
         );
 
         await Promise.all([...registerPromises, ...movementPromises]);
+
+        console.log(`📝 Subcollecciones críticas: ${sessions.length} sessions, ${limitedSiloBags.length} silo bags`);
     }
 
     private async queryWithMetrics(queryFn: () => Promise<any>, queryName: string): Promise<any> {
@@ -244,7 +314,7 @@ class PrimingService {
                 this.metrics.totalDocuments += 1;
             }
 
-            // Solo log si es muy lenta
+            // Solo log si es muy lentasiloBagForRegister
             if (queryDuration > 800) {
                 console.warn(`🐌 Query lenta: ${queryName} tomó ${queryDuration}ms`);
             } else {

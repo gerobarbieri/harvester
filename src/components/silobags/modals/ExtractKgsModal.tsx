@@ -1,30 +1,43 @@
-
-import { useForm } from 'react-hook-form';
-import { Timestamp } from "firebase/firestore";
+import { useForm, Controller, useWatch } from 'react-hook-form';
 import Button from '../../commons/Button';
 import Input from '../../commons/form/Input';
 import TextArea from '../../commons/form/TextArea';
 import Modal from '../../commons/Modal';
 import { extractKgsSilobag } from '../../../services/siloBags';
-import type { MovementType } from '../../../types';
+import type { MovementType, Silobag } from '../../../types';
 import useAuth from '../../../context/auth/AuthContext';
 import { formatNumber } from '../../../utils';
-import { useExtractKgs } from '../../../hooks/silobags/useExtractKgs';
+import { Timestamp } from 'firebase/firestore';
+import toast from 'react-hot-toast';
 
 interface ExtractKgsModalProps {
     isOpen: boolean;
     onClose: () => void;
-    siloBag: any; // Deberías usar tu tipo SiloBag
+    siloBag: Silobag;
+    updateOptimisticSiloBag: (id: string, updates: Partial<Silobag>) => void;
 }
 
-const ExtractKgsModal: React.FC<ExtractKgsModalProps> = ({ isOpen, onClose, siloBag }) => {
-    const { register, handleSubmit, formState: { errors, isSubmitting }, reset } = useForm();
+const ExtractKgsModal: React.FC<ExtractKgsModalProps> = ({ isOpen, onClose, siloBag, updateOptimisticSiloBag }) => {
+
+    const { control, handleSubmit, formState: { errors, isSubmitting }, reset } = useForm({
+        defaultValues: {
+            kgChange: '',
+            details: ''
+        },
+        mode: 'onChange'
+    });
     const { currentUser } = useAuth();
 
-    const extractMutation = useExtractKgs();
+    const kgChangeValue = useWatch({
+        control,
+        name: 'kgChange',
+    });
 
-    const onSubmit = (data: any) => {
+    const exceedsAvailable = parseFloat(kgChangeValue) > siloBag.current_kg;
+
+    const onSubmit = async (data: any) => {
         const { kgChange, details } = data;
+
         const exitMovement = {
             type: "substract" as MovementType,
             kg_change: -parseFloat(kgChange),
@@ -33,9 +46,11 @@ const ExtractKgsModal: React.FC<ExtractKgsModalProps> = ({ isOpen, onClose, silo
             details
         };
 
-        // Simplemente llamas a 'mutate'. TanStack Query se encarga del resto.
-        extractMutation.mutate({ siloBagId: siloBag.id, movement: exitMovement });
-        handleClose(); // Puedes cerrar el modal inmediatamente
+        extractKgsSilobag(siloBag, exitMovement, updateOptimisticSiloBag).catch(error => {
+            console.error("Error al crear el movimiento de extracción:", error);
+        })
+        handleClose();
+        toast.success("Se extrajeron los kilos con exito!")
     };
 
     const handleClose = () => {
@@ -47,25 +62,55 @@ const ExtractKgsModal: React.FC<ExtractKgsModalProps> = ({ isOpen, onClose, silo
         <Modal isOpen={isOpen} onClose={handleClose} title={`Extraer Kilos de ${siloBag.name}`}>
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
                 <p className="text-sm text-text-secondary">Disponibles: <span className="font-bold text-text-primary">{formatNumber(siloBag.current_kg)} kgs</span></p>
-                <Input
-                    label="Cantidad a Extraer (kgs)"
-                    type="number"
-                    {...register("kgChange", {
+
+                {/* --- 3. REEMPLAZAMOS register CON Controller --- */}
+                <Controller
+                    name="kgChange"
+                    control={control}
+                    rules={{
                         required: "La cantidad es obligatoria.",
-                        valueAsNumber: true,
                         max: {
                             value: siloBag.current_kg,
                             message: `No se puede extraer más de lo disponible.`
                         },
                         min: { value: 1, message: "Debe ser mayor a 0." }
-                    })}
-                    error={errors.kgChange?.message as string}
+                    }}
+                    render={({ field, fieldState: { error } }) => (
+                        <Input
+                            {...field}
+                            label="Cantidad a Extraer (kgs)"
+                            type="number"
+                            error={error?.message}
+                        />
+                    )}
                 />
-                <TextArea label="Motivo / Descripción" {...register("details", { required: "El motivo es obligatorio." })} error={errors.details?.message as string} />
+
+                {/* --- 4. AÑADIMOS EL MENSAJE DE VALIDACIÓN EN TIEMPO REAL --- */}
+                {exceedsAvailable && !errors.kgChange && (
+                    <div className="p-3 text-sm text-red-700 bg-red-50 rounded-lg -mt-2">
+                        El valor ingresado supera la cantidad disponible en el silobolsa.
+                    </div>
+                )}
+
+                <Controller
+                    name="details"
+                    control={control}
+                    rules={{ required: "El motivo es obligatorio." }}
+                    render={({ field, fieldState: { error } }) => (
+                        <TextArea
+                            {...field}
+                            label="Motivo / Descripción"
+                            error={error?.message}
+                        />
+                    )}
+                />
 
                 <div className="flex justify-end gap-3 pt-4">
                     <Button variant="outline" type="button" onClick={onClose}>Cancelar</Button>
-                    <Button variant="primary" type="submit" isLoading={isSubmitting}>Confirmar Extracción</Button>
+                    {/* El botón se deshabilita si excede el total para evitar envíos incorrectos */}
+                    <Button variant="primary" type="submit" isLoading={isSubmitting} disabled={exceedsAvailable}>
+                        Confirmar Extracción
+                    </Button>
                 </div>
             </form>
         </Modal>

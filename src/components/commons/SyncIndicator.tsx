@@ -1,13 +1,13 @@
-// src/components/commons/SyncIndicator.tsx
 import { Wifi, WifiOff, RefreshCw, CheckCircle, AlertCircle } from "lucide-react";
 import { useSync } from "../../context/sync/SyncProvider";
 import useAuth from "../../context/auth/AuthContext";
 import { type FC, useState, useEffect } from "react";
+import { format } from "date-fns"; // Para formatear la fecha
 
-// Ya no necesita la prop "variant"
 const SyncIndicator: FC = () => {
     const { currentUser } = useAuth();
-    const { isSyncing, lastSync, syncError } = useSync(); // Ya no necesita triggerSync
+    // Obtenemos triggerSync del contexto
+    const { isSyncing, lastSync, syncError, triggerSync } = useSync();
     const [isOnline, setIsOnline] = useState(navigator.onLine);
 
     useEffect(() => {
@@ -26,22 +26,30 @@ const SyncIndicator: FC = () => {
     }
 
     const getStatus = () => {
-        // Lógica de estado y color solo para la versión de cabecera
-        if (!isOnline) return { icon: WifiOff, text: "Offline", color: "text-white/70" };
-        if (syncError) return { icon: AlertCircle, text: "Error", color: "text-red-400" };
-        if (isSyncing) return { icon: RefreshCw, text: "Sincronizando", color: "text-white", isSpinning: true };
-        if (lastSync) return { icon: CheckCircle, text: "Sincronizado", color: "text-green-600", bgColor: "bg-green-100" };
+        if (!isOnline) return { icon: WifiOff, text: "Sin Conexión", color: "text-white/70", disabled: true };
+        if (syncError) return { icon: AlertCircle, text: "Error de Sincronización", color: "text-red-400" };
+        if (isSyncing) return { icon: RefreshCw, text: "Sincronizando...", color: "text-white", isSpinning: true, disabled: true };
+        if (lastSync) {
+            // Formateamos la fecha para que sea más legible
+            const formattedTime = format(lastSync, 'HH:mm');
+            return { icon: CheckCircle, text: `Sincronizado ${formattedTime}hs`, color: "text-white/90" };
+        }
         return { icon: Wifi, text: "Online", color: "text-white/70" };
     };
 
-    const { icon: Icon, text, color, isSpinning } = getStatus();
+    const { icon: Icon, text, color, isSpinning, disabled } = getStatus();
 
+    // Convertimos el div en un botón
     return (
-        // Estilos fijos para la cabecera
-        <div className="flex items-center gap-2 z-50 px-3 py-1.5 rounded-full bg-white/10">
+        <button
+            onClick={triggerSync}
+            disabled={disabled || isSyncing}
+            className="flex items-center gap-2 z-50 px-3 py-1.5 rounded-full bg-white/10 transition-colors hover:bg-white/20 disabled:opacity-70 disabled:cursor-not-allowed"
+            title={!disabled ? "Forzar sincronización manual" : text}
+        >
             <Icon size={16} className={`${color} ${isSpinning ? 'animate-spin' : ''}`} />
             <span className={`text-sm font-medium ${color}`}>{text}</span>
-        </div>
+        </button>
     );
 };
 

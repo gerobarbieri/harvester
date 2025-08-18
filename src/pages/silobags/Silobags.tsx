@@ -22,7 +22,7 @@ const SiloBags = () => {
     const { campaign } = useActiveCampaign();
     const { campaignFields } = useCampaignFields(campaign?.id);
     const { crops } = useCrops();
-    const { data: siloBags, isLoading, error } = useSiloBags();
+    const { siloBags, loading, error, updateOptimisticSiloBag, removeOptimisticSiloBag, addOptimisticSiloBag } = useSiloBags();
 
     // Filtrar silos según criterios seleccionados
     const filteredSiloBags = useMemo(() => {
@@ -36,7 +36,7 @@ const SiloBags = () => {
     }, [siloBags, selectedField, selectedCrop]);
 
 
-    if (isLoading) {
+    if (loading) {
         return (
             <div className="space-y-6">
                 <PageHeader title="Silos" breadcrumbs={[{ label: 'Silos' }]} />
@@ -49,7 +49,7 @@ const SiloBags = () => {
         return (
             <div className="space-y-6">
                 <PageHeader title="Silos" breadcrumbs={[{ label: 'Silos' }]} />
-                <div className="text-center text-red-500 py-8">Error: {error.message}</div>
+                <div className="text-center text-red-500 py-8">Error: {error}</div>
             </div>
         );
     }
@@ -102,6 +102,8 @@ const SiloBags = () => {
                 onClose={() => setModalState({ type: null })}
                 fields={campaignFields || []}
                 crops={crops || []}
+                removeOptimisticSiloBag={removeOptimisticSiloBag}
+                addOptimisticSiloBag={addOptimisticSiloBag}
             />
 
             {
@@ -111,11 +113,13 @@ const SiloBags = () => {
                             isOpen={modalState.type === 'extract'}
                             onClose={() => setModalState({ type: null })}
                             siloBag={modalState.data}
+                            updateOptimisticSiloBag={updateOptimisticSiloBag}
                         />
                         <CloseSiloBagModal
                             isOpen={modalState.type === 'close'}
                             onClose={() => setModalState({ type: null })}
                             siloBag={modalState.data}
+                            updateOptimisticSiloBag={updateOptimisticSiloBag}
                         />
                     </>
                 )

@@ -26,7 +26,7 @@ export const MobileHeader: React.FC<MobileHeaderProps> = ({ isUserMenuOpen, setI
 
 
                     <SyncIndicator />
-                    <div ref={menuRef} className="relative">
+                    <div className="relative">
                         <button
                             onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
                             className="w-10 h-10 bg-primary-darker rounded-full flex items-center justify-center text-white hover:bg-primary-dark transition-colors"
@@ -34,7 +34,7 @@ export const MobileHeader: React.FC<MobileHeaderProps> = ({ isUserMenuOpen, setI
                             <User size={20} />
                         </button>
                         {isUserMenuOpen && (
-                            <div className="absolute right-0 top-12 bg-surface border border-gray-200 rounded-lg shadow-lg py-1 min-w-40 z-50 animate-fade-in-fast">
+                            <div ref={menuRef} className="absolute right-0 top-12 bg-surface border border-gray-200 rounded-lg shadow-lg py-1 min-w-40 z-50 animate-fade-in-fast">
                                 <button
                                     onClick={logout}
                                     className="w-full flex items-center space-x-3 px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50 hover:text-red-700 rounded-md transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"

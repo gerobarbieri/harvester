@@ -10,15 +10,13 @@ interface UpdateAdvanceModalProps {
     onClose: () => void;
     onSubmit: (data: any) => void;
     harvestSession: HarvestSession;
-    isSubmitting: boolean;
 }
 
 const UpdateAdvanceModal: React.FC<UpdateAdvanceModalProps> = ({
     isOpen,
     onClose,
     onSubmit,
-    harvestSession,
-    isSubmitting,
+    harvestSession
 }) => {
     const {
         control,
@@ -70,8 +68,8 @@ const UpdateAdvanceModal: React.FC<UpdateAdvanceModalProps> = ({
                     <Button className="w-[30%]" variant="outline" type="button" onClick={onClose}>
                         Cancelar
                     </Button>
-                    <Button className="w-[70%]" type="submit" isLoading={isSubmitting}>
-                        {isSubmitting ? 'Guardando...' : 'Guardar Cambios'}
+                    <Button className="w-[70%]" type="submit">
+                        Guardar Cambios
                     </Button>
                 </div>
             </form>

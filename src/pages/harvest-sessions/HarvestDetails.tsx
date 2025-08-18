@@ -75,9 +75,8 @@ interface HarvestDetailProps {
 
 const HarvestDetail: FC<HarvestDetailProps> = ({ onBack }) => {
     const { harvestSessionId } = useParams<{ harvestSessionId: string }>();
-    const { session: harvestSession, loading } = useHarvestSession(harvestSessionId || '');
+    const { session: harvestSession, loading, setSession } = useHarvestSession(harvestSessionId || '');
     const { registers } = useHarvestSessionRegisters(harvestSessionId || '');
-    const [isUpdatingAdvance, setIsUpdatingAdvance] = useState(false);
     const [isAdvanceModalOpen, setIsAdvanceModalOpen] = useState(false);
     const [isEditManagerModalOpen, setIsEditManagerModalOpen] = useState(false);
     const navigate = useNavigate();
@@ -111,15 +110,13 @@ const HarvestDetail: FC<HarvestDetailProps> = ({ onBack }) => {
     };
 
     const handleUpdateAdvance = async (data: any) => {
-        setIsUpdatingAdvance(true);
-        try {
-            updateHarvestSessionProgress(harvestSession.id, data.status, data.harvested_hectares);
-            setIsAdvanceModalOpen(false);
-        } catch (error) {
-            console.error('Error al actualizar avance:', error);
-        } finally {
-            setIsUpdatingAdvance(false);
-        }
+        updateHarvestSessionProgress(harvestSession, data.status, data.harvested_hectares)
+            .catch(error => {
+                console.error('Error al actualizar avance:', error);
+            });
+
+        setIsAdvanceModalOpen(false);
+
     };
 
     const TabButton: FC<{ isActive: boolean; to: string; children: React.ReactNode }> = ({ isActive, to, children }) => (
@@ -156,7 +153,6 @@ const HarvestDetail: FC<HarvestDetailProps> = ({ onBack }) => {
                     onClose={() => setIsAdvanceModalOpen(false)}
                     onSubmit={handleUpdateAdvance}
                     harvestSession={harvestSession}
-                    isSubmitting={isUpdatingAdvance}
                 />
             )}
             {isEditManagerModalOpen && (
@@ -207,17 +203,16 @@ const HarvestDetail: FC<HarvestDetailProps> = ({ onBack }) => {
                             </span>
                         </div>
                         <div className="mt-2 h-4 w-full bg-background rounded-full overflow-hidden">
-                            <div style={{ width: `${progress}%` }} className="h-full bg-primary"></div>
+                            <div style={{ width: `${progress}%` }} className="h-full bg-primary-darker"></div>
                         </div>
                         <div className="flex justify-center md:justify-end mt-4 ">
                             <Button
                                 variant="secondary"
                                 className="w-full md:w-auto"
                                 onClick={() => setIsAdvanceModalOpen(true)}
-                                isLoading={isUpdatingAdvance}
-                                icon={isUpdatingAdvance ? undefined : PlayCircle}
+                                icon={PlayCircle}
                             >
-                                {isUpdatingAdvance ? 'Actualizando...' : 'Actualizar Avance'}
+                                Actualizar Avance
                             </Button>
                         </div>
                     </div>
@@ -247,7 +242,7 @@ const HarvestDetail: FC<HarvestDetailProps> = ({ onBack }) => {
 
                 {/* Contenido dinámico según la pestaña seleccionada - renderizado por Outlet */}
                 <div className="animate-fade-in-fast">
-                    <Outlet context={{ harvestSession, registers }} />
+                    <Outlet context={{ harvestSession, registers, setSession }} />
                 </div>
             </div>
         </>

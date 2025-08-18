@@ -9,7 +9,7 @@ const SummaryTab: FC = () => {
 
     const totalKg = harvestSession.total_kgs || harvestSession.harvested_kgs || 0;
     const harvestedYield = harvestSession.yields?.harvested || 0;
-    const sownYield = harvestSession.yields?.sown || 0;
+    const sownYield = harvestSession.yields?.seed || 0;
     const estimatedYield = harvestSession.estimated_yield;
 
     return (

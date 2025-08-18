@@ -3,7 +3,7 @@ import Button from "../../../commons/Button";
 import Modal from "../../../commons/Modal";
 import { AlertTriangle } from "lucide-react";
 
-const DeleteRegisterModal: FC<{ isOpen: boolean, onClose: () => void, onConfirm: () => void, isSubmitting: boolean }> = ({ isOpen, onClose, onConfirm, isSubmitting }) => {
+const DeleteRegisterModal: FC<{ isOpen: boolean, onClose: () => void, onConfirm: () => void, }> = ({ isOpen, onClose, onConfirm }) => {
     return (
         <Modal isOpen={isOpen} onClose={onClose} title="Eliminar Registro">
             <div className="text-center">
@@ -25,8 +25,8 @@ const DeleteRegisterModal: FC<{ isOpen: boolean, onClose: () => void, onConfirm:
                 <Button variant="outline" className="w-full" type="button" onClick={onClose}>
                     Cancelar
                 </Button>
-                <Button variant="danger" className="w-full" onClick={onConfirm} isLoading={isSubmitting}>
-                    {isSubmitting ? 'Eliminando...' : 'Sí, eliminar'}
+                <Button variant="danger" className="w-full" onClick={onConfirm}>
+                    Sí, eliminar
                 </Button>
             </div>
         </Modal>

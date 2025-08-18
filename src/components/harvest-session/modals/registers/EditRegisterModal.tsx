@@ -6,7 +6,7 @@ import Input from "../../../commons/form/Input";
 import Modal from "../../../commons/Modal";
 import TextArea from "../../../commons/form/TextArea";
 
-const EditRegisterModal: FC<{ isOpen: boolean, onClose: () => void, onSubmit: (data: any) => void, isSubmitting: boolean, register: any }> = ({ isOpen, onClose, onSubmit, isSubmitting, register }) => {
+const EditRegisterModal: FC<{ isOpen: boolean, onClose: () => void, onSubmit: (data: any) => void, register: any }> = ({ isOpen, onClose, onSubmit, register }) => {
     const { control, handleSubmit, formState: { errors }, setValue } = useForm({
         defaultValues: {
             type: register.type || 'truck', weight_kg: register.weight_kg || '', humidity: register.humidity || '',
@@ -31,7 +31,7 @@ const EditRegisterModal: FC<{ isOpen: boolean, onClose: () => void, onSubmit: (d
                 <Controller name="observations" control={control} render={({ field }) => (<TextArea {...field} label="Observaciones" placeholder="Anotaciones adicionales..." />)} />
                 <div className="flex justify-end gap-3 pt-4 border-t border-gray-100">
                     <Button className="w-[30%]" variant="outline" type="button" onClick={onClose}>Cancelar</Button>
-                    <Button className="w-[70%]" type="submit" isLoading={isSubmitting}>{isSubmitting ? 'Guardando...' : 'Guardar Cambios'}</Button></div>
+                    <Button className="w-[70%]" type="submit">Guardar Cambios</Button></div>
             </form>
         </Modal>
     );

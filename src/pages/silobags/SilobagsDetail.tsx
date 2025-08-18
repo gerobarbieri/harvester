@@ -8,12 +8,14 @@ import { useSiloBagMovements } from "../../hooks/silobags/useSilobagMovements";
 import { useSiloBag } from "../../hooks/silobags/useSilobag";
 import { formatNumber } from "../../utils";
 import PageHeader from "../../components/commons/layout/PageHeader";
+import { Timestamp } from "firebase/firestore";
+import { format } from "date-fns";
 
 const SiloBagDetail: FC = () => {
     const { siloId } = useParams<{ siloId: string }>();
     const navigate = useNavigate();
     const { siloBag, loading: loadingSilo, error: errorSilo } = useSiloBag(siloId);
-    const { movements, loading: loadingMovements, loadingMore, error: errorMovements, fetchMore, hasMore } = useSiloBagMovements(siloBag?.id);
+    const { movements, loading: loadingMovements, error: errorMovements } = useSiloBagMovements(siloBag?.id);
     const isLoading = loadingSilo || loadingMovements;
     const error = errorSilo || errorMovements;
 
@@ -147,7 +149,7 @@ const SiloBagDetail: FC = () => {
                                     </div>
                                     <div className="flex-1">
                                         <p className="font-medium text-text-primary">{mov.details || "Sin descripción"}</p>
-                                        <p className="text-sm text-text-secondary">{mov.date.toLocaleDateString('es-AR')}</p>
+                                        <p className="text-sm text-text-secondary">{format(mov.date.toDate(), 'dd/MM/yyyy HH:mm')}</p>
                                     </div>
                                     <div className="text-right">
                                         <p className={`text-lg font-bold ${mov.kg_change > 0 ? 'text-green-600' : 'text-red-600'}`}>{mov.kg_change > 0 ? '+' : ''}{formatNumber(mov.kg_change)}</p>
@@ -163,22 +165,12 @@ const SiloBagDetail: FC = () => {
                         {movements.length > 0 && movements.map((mov: SilobagMovement) => (
                             <div key={mov.id} className="relative pl-8">
                                 <div className={`absolute -left-[11px] top-1 w-5 h-5 rounded-full flex items-center justify-center ${(mov.kg_change > 0) ? 'bg-green-500' : 'bg-red-500'}`}>{(mov.kg_change > 0) ? <ArrowDown size={12} className="text-white" /> : <ArrowUp size={12} className="text-white" />}</div>
-                                <div className="flex justify-between items-center"><span className="font-semibold text-text-primary"><MovementTypeBadge type={mov.type} /></span><span className="text-xs text-text-secondary">{mov.date.toLocaleDateString('es-AR')}</span></div>
+                                <div className="flex justify-between items-center"><span className="font-semibold text-text-primary"><MovementTypeBadge type={mov.type} /></span><span className="text-xs text-text-secondary">{format(mov.date.toDate(), 'dd/MM/yyyy HH:mm')}</span></div>
                                 <p className={`font-bold text-2xl mt-1 ${mov.kg_change > 0 ? 'text-green-600' : 'text-red-600'}`}>{mov.kg_change > 0 ? '+' : ''}{formatNumber(mov.kg_change)} kgs</p>
                                 <p className="text-sm text-text-secondary mt-1">{mov.details}</p>
                             </div>
                         ))}
                     </div>
-                </div>
-                <div className="mt-6 flex justify-center">
-                    {hasMore && (
-                        <Button variant="secondary" onClick={() => fetchMore()} isLoading={loadingMore}>
-                            Cargar más
-                        </Button>
-                    )}
-                    {!loadingMovements && !hasMore && movements.length > 0 && (
-                        <p className="text-sm text-text-secondary">Fin del historial</p>
-                    )}
                 </div>
                 {movements.length === 0 && (
                     <div className="text-center py-10 text-text-secondary">

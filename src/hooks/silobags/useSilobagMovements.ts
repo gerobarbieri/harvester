@@ -1,71 +1,59 @@
-import { useInfiniteQuery } from '@tanstack/react-query';
-import { collection, query, orderBy, limit, startAfter, getDocs, where, type QueryDocumentSnapshot, type DocumentData } from 'firebase/firestore';
+import { useState, useEffect } from 'react';
+import { collection, query, orderBy, where, onSnapshot, limit } from 'firebase/firestore';
 import { db } from '../../firebase/firebase';
 import useAuth from '../../context/auth/AuthContext';
 import type { SilobagMovement } from '../../types';
 
-const PAGE_SIZE = 15;
-
-const fetchMovementsPage = async ({ pageParam, queryKey }: { pageParam: QueryDocumentSnapshot<DocumentData> | null, queryKey: any[] }) => {
-    // 1. Destructuramos los IDs directamente de la queryKey
-    const [_key, siloBagId, organizationId] = queryKey;
-
-    const collectionRef = collection(db, `silo_bags/${siloBagId}/movements`);
-
-    let q = query(
-        collectionRef,
-        where('organization_id', '==', organizationId),
-        orderBy("date", "desc"),
-        limit(PAGE_SIZE)
-    );
-
-    if (pageParam) {
-        q = query(q, startAfter(pageParam));
-    }
-
-    const docSnap = await getDocs(q);
-
-    const movementsData: SilobagMovement[] = docSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as SilobagMovement));
-
-    return {
-        data: movementsData,
-        nextCursor: docSnap.docs[docSnap.docs.length - 1],
-    };
-};
+// Escuchamos los 50 movimientos más recientes. Es un buen balance.
+const REALTIME_LIMIT = 50;
 
 export const useSiloBagMovements = (siloBagId?: string) => {
-    const { currentUser } = useAuth();
-    const organizationId = currentUser?.organizationId;
+    const { currentUser, loading: authLoading } = useAuth();
+    const [movements, setMovements] = useState<SilobagMovement[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<Error | null>(null);
 
-    const {
-        data,
-        error,
-        fetchNextPage,
-        hasNextPage,
-        isLoading,
-        isFetchingNextPage
-    } = useInfiniteQuery({
+    useEffect(() => {
+        if (authLoading || !currentUser || !siloBagId) {
+            if (!authLoading) setLoading(false);
+            setMovements([]);
+            return;
+        }
 
-        queryKey: ['siloBagMovements', siloBagId, organizationId],
+        setLoading(true);
+        setError(null);
 
-        queryFn: fetchMovementsPage,
+        const collectionRef = collection(db, `silo_bags/${siloBagId}/movements`);
+        const q = query(
+            collectionRef,
+            where('organization_id', '==', currentUser.organizationId),
+            orderBy("date", "desc"),
+            limit(REALTIME_LIMIT) // Limitamos la escucha en tiempo real
+        );
 
-        getNextPageParam: (lastPage) => {
-            return lastPage.nextCursor || undefined;
-        },
-        initialPageParam: null,
+        const unsubscribe = onSnapshot(q,
+            (snapshot) => {
+                const movementsData = snapshot.docs.map(doc => {
+                    const data = doc.data();
+                    return {
+                        id: doc.id,
+                        ...data
+                    } as SilobagMovement;
+                });
 
-        enabled: !!siloBagId && !!organizationId,
-    });
+                setMovements(movementsData);
+                setLoading(false);
+            },
+            (err) => {
+                console.error("Error en la suscripción a movimientos:", err);
+                setError(err);
+                setLoading(false);
+            }
+        );
 
-    const movements = data?.pages?.flatMap(page => page.data) ?? [];
+        return () => unsubscribe();
 
-    return {
-        movements,
-        loading: isLoading,
-        loadingMore: isFetchingNextPage,
-        error: error as Error | null,
-        fetchMore: fetchNextPage,
-        hasMore: !!hasNextPage,
-    };
+    }, [siloBagId, currentUser, authLoading]);
+
+    return { movements, loading, error };
 };

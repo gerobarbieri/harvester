@@ -9,7 +9,7 @@ import Select from "../../../commons/form/Select";
 import Modal from "../../../commons/Modal";
 import TextArea from "../../../commons/form/TextArea";
 
-export const RegisterFormFields: FC<{ control: any, errors: any, setValue: any, isEditMode: boolean }> = ({ control, errors, setValue, isEditMode }) => {
+export const RegisterFormFields: FC<{ control: any, errors: any, setValue: any, isEditMode: boolean }> = ({ control, setValue, isEditMode }) => {
     const type = useWatch({ control, name: 'type' });
     const { siloBags } = useSiloBags();
     const { destinations } = useDestinations();
@@ -65,8 +65,8 @@ export const RegisterFormFields: FC<{ control: any, errors: any, setValue: any, 
     );
 }
 
-const AddRegisterModal: FC<{ isOpen: boolean, onClose: () => void, onSubmit: (data: any) => void, isSubmitting: boolean }> = ({ isOpen, onClose, onSubmit, isSubmitting }) => {
-    const { control, handleSubmit, formState: { errors }, setValue } = useForm({
+const AddRegisterModal: FC<{ isOpen: boolean, onClose: () => void, onSubmit: (data: any) => void, }> = ({ isOpen, onClose, onSubmit }) => {
+    const { control, handleSubmit, formState: { errors }, setValue, reset } = useForm({
         defaultValues: {
             type: 'truck', weight_kg: '', humidity: '', driver: '', license_plate: '',
             destinationId: '', ctg: '', cpe: '', siloBagId: '', newSiloBagName: '',
@@ -74,9 +74,14 @@ const AddRegisterModal: FC<{ isOpen: boolean, onClose: () => void, onSubmit: (da
         }
     });
 
+    const handleOnSubmit = (data: any) => {
+        onSubmit(data);
+        reset();
+    }
+
     return (
         <Modal isOpen={isOpen} onClose={onClose} title="Nuevo Registro de Cosecha">
-            <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+            <form onSubmit={handleSubmit(handleOnSubmit)} className="space-y-4">
                 <Controller name="type" control={control} render={({ field }) => (<Select {...field} label="Tipo" items={[{ id: 'truck', name: 'Camión' }, { id: 'silo_bag', name: 'Silobolsa' }]} />)} />
                 <div className="grid grid-cols-2 gap-4">
                     <Controller name="weight_kg" control={control} rules={{ required: 'Los kilos son obligatorios.' }} render={({ field }) => (<Input {...field} label="Kilos" type="number" placeholder="Ej: 30000" error={errors.weight_kg?.message} />)} />
@@ -86,7 +91,7 @@ const AddRegisterModal: FC<{ isOpen: boolean, onClose: () => void, onSubmit: (da
                 <Controller name="observations" control={control} render={({ field }) => (<TextArea {...field} label="Observaciones" placeholder="Anotaciones adicionales..." />)} />
                 <div className="flex justify-end gap-3 pt-4 border-t border-gray-100">
                     <Button className="w-[30%]" variant="outline" type="button" onClick={onClose}>Cancelar</Button>
-                    <Button className="w-[70%]" type="submit" isLoading={isSubmitting}>{isSubmitting ? 'Guardando...' : 'Guardar Registro'}</Button>
+                    <Button className="w-[70%]" type="submit" >Guardar Registro</Button>
                 </div>
             </form>
         </Modal>

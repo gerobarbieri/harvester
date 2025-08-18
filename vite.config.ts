@@ -17,17 +17,16 @@ export default defineConfig({
     tailwindcss(),
     VitePWA({
       registerType: 'prompt',
-      includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'masked-icon.svg'],
+      includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'masked-icon.svg', 'logo.png'],
       workbox: {},
       manifest: {
-        theme_color: '#ffffff',
-        background_color: '#f1f5f9',
-        display: 'standalone',
-        scope: '/',
-        start_url: '/',
-        name: 'Control de Cosecha',
-        short_name: 'Cosecha',
-        description: 'Aplicación PWA para el control de cosecha offline-first.',
+        name: "Hallmay Harvest App",
+        short_name: "Hallmay",
+        description: "Aplicación de gestión de cosecha",
+        start_url: "/",
+        display: "standalone",
+        background_color: "#ffffff",
+        theme_color: "#2A6449",
         icons: [
           {
             src: 'harvester-s.png',

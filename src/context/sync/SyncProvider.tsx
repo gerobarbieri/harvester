@@ -4,6 +4,8 @@ import { primeOfflineCache } from '../../services/priming';
 import useAuth from '../auth/AuthContext';
 import toast from 'react-hot-toast';
 import { useDeviceType } from '../../hooks/useDeviceType';
+import { formatDistanceToNow } from 'date-fns';
+import { es } from 'date-fns/locale';
 
 interface PrimingMetrics {
     totalQueries: number;
@@ -46,12 +48,16 @@ export const SyncProvider = ({ children }: { children: ReactNode }) => {
         const now = Date.now();
 
         if (isManual) {
-            if (now - lastManualSyncAttempt.current < MANUAL_SYNC_RATE_LIMIT_MS) {
-                const waitTime = Math.ceil((MANUAL_SYNC_RATE_LIMIT_MS - (now - lastManualSyncAttempt.current)) / 1000);
-                toast.error(`Ya has sincronizado recientemente. Inténtalo de nuevo en ${waitTime} segundos.`);
+            const timeSinceLastAttempt = now - lastManualSyncAttempt.current;
+            if (timeSinceLastAttempt < MANUAL_SYNC_RATE_LIMIT_MS) {
+                const remainingTimeMs = MANUAL_SYNC_RATE_LIMIT_MS - timeSinceLastAttempt;
+                const futureUnlockTime = new Date(now + remainingTimeMs);
+                const friendlyTime = formatDistanceToNow(futureUnlockTime, { addSuffix: true, locale: es });
+                toast.error(`Sincronización manual disponible ${friendlyTime}.`, { duration: 5000 });
                 return false;
             }
             lastManualSyncAttempt.current = now;
+            localStorage.setItem('lastManualSyncAttempt', now.toString());
         }
 
         if (isSyncing) { return false; }
