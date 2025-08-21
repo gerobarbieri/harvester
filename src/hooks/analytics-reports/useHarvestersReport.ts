@@ -1,4 +1,4 @@
-import { query, collection, where, documentId, getDocs, getDocsFromCache } from "firebase/firestore";
+import { query, collection, where, onSnapshot, documentId } from "firebase/firestore";
 import { useState, useEffect } from "react";
 import useAuth from "../../context/auth/AuthContext";
 import { db } from "../../firebase/firebase";
@@ -12,16 +12,24 @@ export const useHarvestersSummary = (campaignId?: string, cropId?: string, field
 
     useEffect(() => {
         if (authLoading || !currentUser || !campaignId) {
-            if (!authLoading) setLoading(false);
+            if (!authLoading) {
+                setLoading(false);
+            }
             return;
         }
 
+        setLoading(true);
+        setError(null);
+
+
         let docId = `camp_${campaignId}_crop_${cropId}`;
         let aggregationLevel = 'crop';
+
         if (fieldId) {
             docId += `_field_${fieldId}`;
             aggregationLevel = 'field';
         }
+
         if (plotId && fieldId) {
             docId += `_plot_${plotId}`;
             aggregationLevel = 'plot';
@@ -35,30 +43,24 @@ export const useHarvestersSummary = (campaignId?: string, cropId?: string, field
             where('aggregation_level', '==', aggregationLevel)
         );
 
-        const getSummary = async () => {
-            try {
-                const cacheSnapshot = await getDocsFromCache(harvestersSummaryQuery);
-                if (!cacheSnapshot.empty) {
-                    const data = cacheSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as HarvestersSummary));
-                    setHarvestersSummary(data);
-                    setLoading(false);
-                }
-            } catch (err) {
+        const unsubscribe = onSnapshot(harvestersSummaryQuery,
+            (snapshot) => {
+                const summaryData = snapshot.docs.map(doc => ({
+                    id: doc.id,
+                    ...(doc.data() as Omit<HarvestersSummary, 'id'>)
+                }));
+
+                setHarvestersSummary(summaryData);
+                setLoading(false);
+            },
+            (err) => {
+                console.error("Error in harvesters_summary subscription:", err);
+                setError(err.message);
                 setLoading(false);
             }
+        );
 
-            try {
-
-                const serverSnapshot = await getDocs(harvestersSummaryQuery);
-                const serverData = serverSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as HarvestersSummary));
-                setHarvestersSummary(serverData);
-                setLoading(false);
-            } catch (e) {
-                setLoading(false);
-            }
-        };
-
-        getSummary();
+        return () => unsubscribe();
 
     }, [currentUser, authLoading, campaignId, cropId, fieldId, plotId]);
 
