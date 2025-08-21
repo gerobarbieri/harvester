@@ -115,9 +115,11 @@ export const HarvestersSection: FC = () => {
                 <h3 className="text-xl font-bold text-text-primary">Desempeño de Cosecheros</h3>
             </div>
             <div className="flex flex-col">
-                {sortedSummary.map((h: any, i: number) => (
-                    <HarvesterItem key={h.id} itemData={h} rank={i} maxYield={maxYield} />
-                ))}
+                <div className="space-y-4">
+                    {sortedSummary.map((h: any, i: number) => (
+                        <HarvesterItem key={h.id} itemData={h} rank={i} maxYield={maxYield} />
+                    ))}
+                </div>
             </div>
         </div>
     );

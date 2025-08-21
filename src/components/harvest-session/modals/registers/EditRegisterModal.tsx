@@ -5,8 +5,9 @@ import Button from "../../../commons/Button";
 import Input from "../../../commons/form/Input";
 import Modal from "../../../commons/Modal";
 import TextArea from "../../../commons/form/TextArea";
+import type { Destination, Silobag } from "../../../../types";
 
-const EditRegisterModal: FC<{ isOpen: boolean, onClose: () => void, onSubmit: (data: any) => void, register: any }> = ({ isOpen, onClose, onSubmit, register }) => {
+const EditRegisterModal: FC<{ isOpen: boolean, onClose: () => void, onSubmit: (data: any) => void, register: any, siloBags: Silobag[], destinations: Destination[] }> = ({ isOpen, onClose, onSubmit, register, siloBags, destinations }) => {
     const { control, handleSubmit, formState: { errors }, setValue } = useForm({
         defaultValues: {
             type: register.type || 'truck', weight_kg: register.weight_kg || '', humidity: register.humidity || '',
@@ -16,6 +17,7 @@ const EditRegisterModal: FC<{ isOpen: boolean, onClose: () => void, onSubmit: (d
             observations: register.details || ''
         }
     });
+
     return (
         <Modal isOpen={isOpen} onClose={onClose} title="Editar Registro">
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
@@ -27,7 +29,7 @@ const EditRegisterModal: FC<{ isOpen: boolean, onClose: () => void, onSubmit: (d
                     <Controller name="weight_kg" control={control} rules={{ required: 'Los kilos son obligatorios.' }} render={({ field, fieldState: { error } }) => (<Input {...field} label="Kilos" type="number" placeholder="Ej: 30000" error={error?.message} />)} />
                     <Controller name="humidity" control={control} rules={{ required: 'La humedad es obligatoria.' }} render={({ field, fieldState: { error } }) => (<Input {...field} label="Humedad (%)" type="number" placeholder="Ej: 14.5" error={error?.message} />)} />
                 </div>
-                <RegisterFormFields control={control} errors={errors} setValue={setValue} isEditMode={true} />
+                <RegisterFormFields siloBags={siloBags} destinations={destinations} control={control} errors={errors} setValue={setValue} isEditMode={true} />
                 <Controller name="observations" control={control} render={({ field }) => (<TextArea {...field} label="Observaciones" placeholder="Anotaciones adicionales..." />)} />
                 <div className="flex justify-end gap-3 pt-4 border-t border-gray-100">
                     <Button className="w-[30%]" variant="outline" type="button" onClick={onClose}>Cancelar</Button>

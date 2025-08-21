@@ -5,9 +5,6 @@ import Select from "../../commons/form/Select";
 import Modal from "../../commons/Modal";
 import TextArea from '../../commons/form/TextArea';
 import type { CampaignField, Crop, Silobag } from "../../../types";
-import { createSilobag } from '../../../services/siloBags';
-import useAuth from '../../../context/auth/AuthContext';
-import toast from 'react-hot-toast';
 
 // --- 1. ACTUALIZAR LA INTERFAZ DE PROPS ---
 interface CreateSiloBagModalProps {
@@ -15,8 +12,7 @@ interface CreateSiloBagModalProps {
     onClose: () => void;
     fields: Partial<CampaignField>[];
     crops: Partial<Crop>[];
-    addOptimisticSiloBag: (silo: Silobag) => void;
-    removeOptimisticSiloBag: (id: string) => void;
+    onSubmit: (data: any) => Promise<void>;
 }
 
 const CreateSiloBagModal: React.FC<CreateSiloBagModalProps> = ({
@@ -24,36 +20,13 @@ const CreateSiloBagModal: React.FC<CreateSiloBagModalProps> = ({
     onClose,
     fields,
     crops,
-    addOptimisticSiloBag,
-    removeOptimisticSiloBag
+    onSubmit
 }) => {
     const { register, control, handleSubmit, formState: { errors, isSubmitting }, reset } = useForm();
-    const { currentUser } = useAuth();
 
-    // --- 2. ACTUALIZAR EL HANDLER ONSUBMIT ---
-    const onSubmit = async (data: any) => {
-        const { name, fieldId, cropId, initialKg, details, location } = data;
-        const field = fields.find(cf => cf.field.id === fieldId)?.field;
-        const crop = crops.find(c => c.id === cropId);
-
-        const newSiloBag = {
-            name,
-            location: location,
-            organization_id: currentUser.organizationId,
-            initial_kg: parseFloat(initialKg),
-            field: { id: field.id, name: field.name },
-            crop: { id: crop.id, name: crop.name },
-            details: details
-        };
-
-        createSilobag(newSiloBag, {
-            add: addOptimisticSiloBag,
-            remove: removeOptimisticSiloBag
-        }).catch(error => {
-            console.error("Error al intentar crear el silo:", error);
-        });
-        handleClose();
-        toast.success("Silobolsa creado con exito!");
+    const handleFormSubmit = (data: any) => {
+        onSubmit(data);
+        reset();
     };
 
     const handleClose = () => {
@@ -62,8 +35,8 @@ const CreateSiloBagModal: React.FC<CreateSiloBagModalProps> = ({
     };
 
     return (
-        <Modal isOpen={isOpen} onClose={onClose} title="Crear Nuevo Silobolsa">
-            <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+        <Modal isOpen={isOpen} onClose={handleClose} title="Crear Nuevo Silobolsa">
+            <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-4">
                 <Input label="Nombre o Identificador del Silo" {...register("name", { required: "El nombre es obligatorio." })} error={errors.name?.message as string} />
                 <div className="grid grid-cols-2 gap-4">
                     <Controller

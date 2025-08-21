@@ -13,18 +13,19 @@ import { useRegisterManager } from "../../../hooks/harvest-session-register/useR
 
 const RegistersTab: FC = () => {
     // Obtenemos los datos del contexto del Outlet
-    const { registers, harvestSession, setSession } = useOutletContext<any>();
+    const { registers, harvestSession } = useOutletContext<any>();
 
     // Centralizamos toda la lógica en el hook
-    const { selectedRegister, modal, handlers, ui } = useRegisterManager(harvestSession, setSession);
+    const { selectedRegister, modal, handlers, ui, siloBags, destinations } = useRegisterManager(harvestSession);
 
     return (
         <>
-            {/* Modales */}
             <AddRegisterModal
                 isOpen={modal === 'add'}
                 onClose={ui.closeModal}
                 onSubmit={handlers.add}
+                siloBags={siloBags}
+                destinations={destinations}
             />
             {selectedRegister && (
                 <>
@@ -33,12 +34,10 @@ const RegistersTab: FC = () => {
                         onClose={ui.closeModal}
                         onSubmit={handlers.update}
                         register={selectedRegister}
+                        siloBags={siloBags}
+                        destinations={destinations}
                     />
-                    <DeleteRegisterModal
-                        isOpen={modal === 'delete'}
-                        onClose={ui.closeModal}
-                        onConfirm={handlers.delete}
-                    />
+                    {/* ... (DeleteRegisterModal no necesita estos datos) ... */}
                 </>
             )}
 

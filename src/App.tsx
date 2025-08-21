@@ -15,8 +15,10 @@ import HarvestersTab from './pages/harvest-sessions/tabs/HarvestersTab.tsx';
 import RegistersTab from './pages/harvest-sessions/tabs/RegistersTab.tsx';
 import SummaryTab from './pages/harvest-sessions/tabs/SummaryTab.tsx';
 import SiloBagDetail from './pages/silobags/SilobagsDetail.tsx';
+import withRole from './components/auth/WithRole.tsx';
 
 export default function App() {
+  const ReportsWithRole = withRole(Reports, ['admin', 'owner']);
 
   return (
     <Routes>
@@ -24,7 +26,7 @@ export default function App() {
       <Route element={<ProtectedRoute />}>
         <Route element={<Layout />}>
           <Route path="/" element={<HarvestView />} />
-          <Route path="reports" element={<Reports />}>
+          <Route path="reports" element={<ReportsWithRole />}>
             <Route index element={<HarvestSection />} /> {/* Ruta por defecto para /reports */}
             <Route path="harvests" element={<HarvestSection />} />
             <Route path="harvesters" element={<HarvestersSection />} />

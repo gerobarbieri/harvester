@@ -11,7 +11,6 @@ import { usePlots } from '../../../hooks/plot/usePlots';
 import { useCrops } from '../../../hooks/crop/useCrops';
 import { useHarvesters } from '../../../hooks/harvester/useHarvesters';
 import { useHarvestManagers } from '../../../hooks/harvest-manager/useHarvestManagers';
-import type { Campaign, Harvester } from '../../../types';
 import { startHarvestSession } from '../../../services/harvestSession';
 import useAuth from '../../../context/auth/AuthContext';
 import { useEffect } from 'react';
@@ -22,7 +21,6 @@ import toast from 'react-hot-toast';
 interface AddModalProps {
     isOpen: boolean;
     onClose: () => void;
-    showToast: (message: string, type: string) => void;
 }
 
 // Definimos un tipo para los datos del formulario para mayor claridad
@@ -36,8 +34,8 @@ type HarvestFormData = {
     harvesters: { harvesterId: string; maps: boolean }[];
 };
 
-const AddModal = ({ isOpen, onClose, showToast }: AddModalProps) => {
-    const { campaign, error, loading } = useActiveCampaign();
+const AddModal = ({ isOpen, onClose }: AddModalProps) => {
+    const { campaign } = useActiveCampaign();
     const { control, register, handleSubmit, formState: { errors, isSubmitting }, reset, setValue } = useForm<HarvestFormData>({
         defaultValues: {
             fieldId: '',
@@ -55,7 +53,6 @@ const AddModal = ({ isOpen, onClose, showToast }: AddModalProps) => {
     const { fields, append, remove } = useFieldArray({ control, name: "harvesters" });
 
     const { currentUser } = useAuth();
-
     const { campaignFields } = useCampaignFields(campaign?.id);
     const { plots } = usePlots(selectedFieldId);
     const { crops } = useCrops();
@@ -89,46 +86,20 @@ const AddModal = ({ isOpen, onClose, showToast }: AddModalProps) => {
     const managerOptions = harvestManagers?.map(manager => ({ id: manager.id, name: manager.name })) || [];
 
     const onSubmit = async (data: HarvestFormData) => {
-        try {
+        startHarvestSession({
+            formData: data,
+            currentUser,
+            activeCampaign: campaign,
+            allPlots: plots,
+            allCampaignFields: campaignFields,
+            allCrops: crops,
+            allHarvestManagers: harvestManagers,
+            allHarvesters: harvesters
+        });
 
-            // Buscamos los objetos completos a partir de los IDs
-            const selectedField = campaignFields?.find(cf => cf.field.id === data.fieldId)?.field;
-            const selectedPlot = plots?.find(p => p.id === data.plotId);
-            const selectedCrop = crops?.find(c => c.id === data.cropId);
-            const selectedManager = harvestManagers?.find(m => m.id === data.managerId);
-
-            const selectedHarvesters = data.harvesters
-                .map(h => {
-                    const harvesterData = harvesters?.find(harv => harv.id === h.harvesterId);
-                    return { id: harvesterData.id, name: harvesterData.name, map_plot: h.maps, harvested_hectares: 0 }
-                });
-
-            if (selectedHarvesters.length !== data.harvesters.length) {
-                return;
-            }
-
-            const hsData = {
-                field: { id: selectedField.id, name: selectedField.name },
-                plot: { id: selectedPlot.id, name: selectedPlot.name },
-                crop: { id: selectedCrop.id, name: selectedCrop.name },
-                harvest_manager: { id: selectedManager.id, name: selectedManager.name },
-                harvesters: selectedHarvesters,
-                hectares: data.hectares,
-                estimated_yield: data.estimatedYield,
-                campaign: { id: campaign.id, name: campaign.name },
-                date: Timestamp.now(),
-                organization_id: currentUser.organizationId
-            };
-
-            startHarvestSession(hsData);
-
-            toast.success('Lote iniciado en cosecha exitosamente!');
-            reset();
-            onClose();
-        } catch (error) {
-            toast.error('Error al iniciar cosecha del lote');
-            console.error('Error:', error);
-        }
+        toast.success('Lote iniciado en cosecha exitosamente!');
+        reset();
+        onClose();
     };
 
     const handleClose = () => {

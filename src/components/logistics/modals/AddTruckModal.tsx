@@ -18,7 +18,6 @@ const AddTruckModal: FC<{
     crops: Crop[];
     suggestedOrderNumber: string;
 }> = ({ isOpen, onClose, fields, crops, suggestedOrderNumber }) => {
-    console.log(suggestedOrderNumber)
     const { control, register, handleSubmit, formState: { errors }, reset } = useForm({
         defaultValues: {
             order: suggestedOrderNumber,
@@ -48,7 +47,6 @@ const AddTruckModal: FC<{
         };
 
         addLogisticsOrder(newOrder).catch(error => {
-            console.error("Error al crear la orden:", error);
             toast.error("No se pudo crear la orden de logística.");
         });
         toast.success("Orden de logística creada con éxito.");

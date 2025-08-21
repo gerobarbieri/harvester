@@ -18,7 +18,7 @@ const Reports: FC = () => {
         campaign: '', crop: 'all', field: 'all', plot: 'all',
     });
     const { campaigns, loading: campaignsLoading } = useCampaigns();
-    const { sessions: sessionsForCampaign } = useHarvestSessionsByCampaign(filters.campaign);
+    const { sessions: sessionsForCampaign } = useHarvestSessionsByCampaign(filters);
     const analytics = useReportsAnalytics(filters);
     const navigate = useNavigate();
 

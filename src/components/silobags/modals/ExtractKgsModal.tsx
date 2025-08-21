@@ -3,21 +3,19 @@ import Button from '../../commons/Button';
 import Input from '../../commons/form/Input';
 import TextArea from '../../commons/form/TextArea';
 import Modal from '../../commons/Modal';
-import { extractKgsSilobag } from '../../../services/siloBags';
-import type { MovementType, Silobag } from '../../../types';
+import type { Silobag } from '../../../types';
 import useAuth from '../../../context/auth/AuthContext';
 import { formatNumber } from '../../../utils';
-import { Timestamp } from 'firebase/firestore';
-import toast from 'react-hot-toast';
+
 
 interface ExtractKgsModalProps {
     isOpen: boolean;
     onClose: () => void;
     siloBag: Silobag;
-    updateOptimisticSiloBag: (id: string, updates: Partial<Silobag>) => void;
+    onSubmit: (data: any) => Promise<void>;
 }
 
-const ExtractKgsModal: React.FC<ExtractKgsModalProps> = ({ isOpen, onClose, siloBag, updateOptimisticSiloBag }) => {
+const ExtractKgsModal: React.FC<ExtractKgsModalProps> = ({ isOpen, onClose, siloBag, onSubmit }) => {
 
     const { control, handleSubmit, formState: { errors, isSubmitting }, reset } = useForm({
         defaultValues: {
@@ -26,7 +24,6 @@ const ExtractKgsModal: React.FC<ExtractKgsModalProps> = ({ isOpen, onClose, silo
         },
         mode: 'onChange'
     });
-    const { currentUser } = useAuth();
 
     const kgChangeValue = useWatch({
         control,
@@ -35,22 +32,9 @@ const ExtractKgsModal: React.FC<ExtractKgsModalProps> = ({ isOpen, onClose, silo
 
     const exceedsAvailable = parseFloat(kgChangeValue) > siloBag.current_kg;
 
-    const onSubmit = async (data: any) => {
-        const { kgChange, details } = data;
-
-        const exitMovement = {
-            type: "substract" as MovementType,
-            kg_change: -parseFloat(kgChange),
-            organization_id: currentUser.organizationId,
-            date: Timestamp.now(),
-            details
-        };
-
-        extractKgsSilobag(siloBag, exitMovement, updateOptimisticSiloBag).catch(error => {
-            console.error("Error al crear el movimiento de extracción:", error);
-        })
-        handleClose();
-        toast.success("Se extrajeron los kilos con exito!")
+    const handleFormSubmit = async (data: any) => {
+        onSubmit(data);
+        reset();
     };
 
     const handleClose = () => {
@@ -60,7 +44,7 @@ const ExtractKgsModal: React.FC<ExtractKgsModalProps> = ({ isOpen, onClose, silo
 
     return (
         <Modal isOpen={isOpen} onClose={handleClose} title={`Extraer Kilos de ${siloBag.name}`}>
-            <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+            <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-4">
                 <p className="text-sm text-text-secondary">Disponibles: <span className="font-bold text-text-primary">{formatNumber(siloBag.current_kg)} kgs</span></p>
 
                 {/* --- 3. REEMPLAZAMOS register CON Controller --- */}

@@ -1,21 +1,18 @@
 import { ChevronDown } from "lucide-react";
 import { type FC, useState } from "react";
 import { Controller, useForm, useWatch } from "react-hook-form";
-import { useDestinations } from "../../../../hooks/destination/useDestinations";
-import { useSiloBags } from "../../../../hooks/silobags/useSilobags";
 import Button from "../../../commons/Button";
 import Input from "../../../commons/form/Input";
 import Select from "../../../commons/form/Select";
 import Modal from "../../../commons/Modal";
 import TextArea from "../../../commons/form/TextArea";
+import type { Destination, Silobag } from "../../../../types";
 
-export const RegisterFormFields: FC<{ control: any, errors: any, setValue: any, isEditMode: boolean }> = ({ control, setValue, isEditMode }) => {
+export const RegisterFormFields: FC<{ control: any, errors: any, setValue: any, isEditMode: boolean, siloBags: Silobag[], destinations: Destination[] }> = ({ control, setValue, isEditMode, siloBags, destinations }) => {
     const type = useWatch({ control, name: 'type' });
-    const { siloBags } = useSiloBags();
-    const { destinations } = useDestinations();
     const [siloBagMode, setSiloBagMode] = useState<'select' | 'create'>('select');
     const [showMore, setShowMore] = useState(false);
-    const siloBagOptions = siloBags;
+    const siloBagOptions = siloBags.map(sb => ({ id: sb.id, name: sb.name }));
     const destinationOptions = destinations.map(d => ({ id: d.id, name: d.name }));
 
     const handleSiloBagModeChange = (mode: 'select' | 'create') => {
@@ -65,7 +62,7 @@ export const RegisterFormFields: FC<{ control: any, errors: any, setValue: any, 
     );
 }
 
-const AddRegisterModal: FC<{ isOpen: boolean, onClose: () => void, onSubmit: (data: any) => void, }> = ({ isOpen, onClose, onSubmit }) => {
+const AddRegisterModal: FC<{ isOpen: boolean, onClose: () => void, onSubmit: (data: any) => void, siloBags: Silobag[], destinations: Destination[] }> = ({ isOpen, onClose, onSubmit, siloBags, destinations }) => {
     const { control, handleSubmit, formState: { errors }, setValue, reset } = useForm({
         defaultValues: {
             type: 'truck', weight_kg: '', humidity: '', driver: '', license_plate: '',
@@ -74,20 +71,25 @@ const AddRegisterModal: FC<{ isOpen: boolean, onClose: () => void, onSubmit: (da
         }
     });
 
+    const handleClose = () => {
+        onClose();
+        reset();
+    }
+
     const handleOnSubmit = (data: any) => {
         onSubmit(data);
         reset();
     }
 
     return (
-        <Modal isOpen={isOpen} onClose={onClose} title="Nuevo Registro de Cosecha">
+        <Modal isOpen={isOpen} onClose={handleClose} title="Nuevo Registro de Cosecha">
             <form onSubmit={handleSubmit(handleOnSubmit)} className="space-y-4">
                 <Controller name="type" control={control} render={({ field }) => (<Select {...field} label="Tipo" items={[{ id: 'truck', name: 'Camión' }, { id: 'silo_bag', name: 'Silobolsa' }]} />)} />
                 <div className="grid grid-cols-2 gap-4">
                     <Controller name="weight_kg" control={control} rules={{ required: 'Los kilos son obligatorios.' }} render={({ field }) => (<Input {...field} label="Kilos" type="number" placeholder="Ej: 30000" error={errors.weight_kg?.message} />)} />
                     <Controller name="humidity" control={control} rules={{ required: 'La humedad es obligatoria.' }} render={({ field }) => (<Input {...field} label="Humedad (%)" type="number" placeholder="Ej: 14.5" error={errors.humidity?.message} />)} />
                 </div>
-                <RegisterFormFields control={control} errors={errors} setValue={setValue} isEditMode={false} />
+                <RegisterFormFields siloBags={siloBags} destinations={destinations} control={control} errors={errors} setValue={setValue} isEditMode={false} />
                 <Controller name="observations" control={control} render={({ field }) => (<TextArea {...field} label="Observaciones" placeholder="Anotaciones adicionales..." />)} />
                 <div className="flex justify-end gap-3 pt-4 border-t border-gray-100">
                     <Button className="w-[30%]" variant="outline" type="button" onClick={onClose}>Cancelar</Button>

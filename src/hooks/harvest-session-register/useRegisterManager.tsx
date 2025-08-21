@@ -6,52 +6,58 @@ import { useDestinations } from '../destination/useDestinations';
 import toast from 'react-hot-toast';
 
 export const useRegisterManager = (
-    harvestSession: HarvestSession,
-    setSession: (session: HarvestSession) => void
+    harvestSession: HarvestSession
 ) => {
     const [selectedRegister, setSelectedRegister] = useState<HarvestSessionRegister | null>(null);
     const [modal, setModal] = useState<'add' | 'edit' | 'delete' | null>(null);
 
-    const { siloBags, addOptimisticSiloBag, removeOptimisticSiloBag, updateOptimisticSiloBag } = useSiloBags();
+    const { siloBags } = useSiloBags({ fieldId: 'todos', cropId: harvestSession.crop.id, status: 'active' });
     const { destinations } = useDestinations();
 
     const handleAdd = useCallback(async (data: any) => {
-        const dataWithOrg = { ...data, organization_id: harvestSession.organization_id };
-        const destination = data.type === 'truck' ? destinations.find(d => d.id === data.destinationId) : undefined;
-        const silobag = data.type === 'silo_bag' ? siloBags.find(s => s.id === data.siloBagId) : undefined;
+        const formDataWithOrg = { ...data, organization_id: harvestSession.organization_id };
 
-        addRegister(dataWithOrg, harvestSession, setSession, { add: addOptimisticSiloBag, remove: removeOptimisticSiloBag, update: updateOptimisticSiloBag }, silobag, destination)
-            .catch(error => {
-                console.error('Error al agregar registro:', error);
-            })
+        addRegister({
+            formData: formDataWithOrg,
+            harvestSession,
+            siloBags,
+            destinations
+        }).catch(error => {
+            console.error('Error al agregar registro:', error);
+        });
         setModal(null);
-        toast.success("Registro guardado con exito!");
-    }, [destinations, harvestSession, setSession, siloBags, addOptimisticSiloBag, removeOptimisticSiloBag, updateOptimisticSiloBag]);
+        toast.success("Registro creado con exito!");
+    }, [destinations, harvestSession, siloBags]);
 
     const handleUpdate = useCallback(async (newData: any) => {
         if (!selectedRegister) return;
-        const dataWithOrg = { ...newData, organization_id: harvestSession.organization_id };
-        const destination = newData.type === 'truck' ? destinations.find(d => d.id === newData.destinationId) : undefined;
-        const silobag = newData.type === 'silo_bag' ? { id: selectedRegister.silo_bag.id, name: selectedRegister.silo_bag.name, location: newData.location } : undefined;
+        const formDataWithOrg = { ...newData, organization_id: harvestSession.organization_id };
 
-        updateRegister(dataWithOrg, selectedRegister, harvestSession, setSession, updateOptimisticSiloBag, siloBags, silobag, destination)
-            .catch(error => {
-                console.log("Error al actualizar el registro", error);
-            });
+        updateRegister({
+            formData: formDataWithOrg,
+            originalRegister: selectedRegister,
+            harvestSession,
+            siloBags,
+            destinations
+        }).catch(error => {
+            console.log("Error al actualizar el registro", error);
+        });
         setModal(null);
         toast.success("Registro actualizado con exito!");
-    }, [selectedRegister, harvestSession, setSession, updateOptimisticSiloBag, siloBags, destinations]);
+    }, [selectedRegister, harvestSession, siloBags, destinations]);
 
     const handleDelete = useCallback(async () => {
         if (!selectedRegister) return;
 
-        deleteRegister(selectedRegister, harvestSession, setSession, updateOptimisticSiloBag, siloBags)
-            .catch(error => {
-                console.error('Error al eliminar registro:', error);
-            });
+        deleteRegister({
+            registerToDelete: selectedRegister,
+            harvestSession
+        }).catch(error => {
+            console.error('Error al eliminar registro:', error);
+        });
         setModal(null);
         toast.success("Registro eliminado con exito!");
-    }, [selectedRegister, harvestSession, setSession, updateOptimisticSiloBag, siloBags]);
+    }, [selectedRegister, harvestSession]);
 
     const openModal = useCallback((type: 'add' | 'edit' | 'delete', register?: HarvestSessionRegister) => {
         if (register) setSelectedRegister(register);
@@ -66,6 +72,8 @@ export const useRegisterManager = (
     return {
         selectedRegister,
         modal,
+        siloBags,
+        destinations,
         handlers: {
             add: handleAdd,
             update: handleUpdate,

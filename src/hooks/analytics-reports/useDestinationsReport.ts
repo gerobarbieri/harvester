@@ -1,4 +1,4 @@
-import { query, collection, where, onSnapshot, documentId } from "firebase/firestore";
+import { query, collection, where, documentId, getDocs, getDocsFromCache } from "firebase/firestore";
 import { useState, useEffect } from "react";
 import useAuth from "../../context/auth/AuthContext";
 import { db } from "../../firebase/firebase";
@@ -12,25 +12,16 @@ export const useDestinationSummary = (campaignId?: string, cropId?: string, fiel
 
     useEffect(() => {
         if (authLoading || !currentUser || !campaignId) {
-            if (!authLoading) {
-                setLoading(false);
-            }
             return;
         }
 
-        setLoading(true);
-        setError(null);
-
-        // Build document ID based on filters
         let docId = `camp_${campaignId}_crop_${cropId}`;
         let aggregationLevel = 'crop';
-
         if (fieldId) {
             docId += `_field_${fieldId}`;
             aggregationLevel = 'field';
         }
-
-        if (plotId && fieldId) { // Plot requiere field
+        if (plotId && fieldId) {
             docId += `_plot_${plotId}`;
             aggregationLevel = 'plot';
         }
@@ -43,24 +34,26 @@ export const useDestinationSummary = (campaignId?: string, cropId?: string, fiel
             where('aggregation_level', '==', aggregationLevel)
         );
 
-        const unsubscribe = onSnapshot(destinationSummaryQuery,
-            (snapshot) => {
-                const summaryData = snapshot.docs.map(doc => ({
-                    id: doc.id,
-                    ...(doc.data() as Omit<DestinationSummary, 'id'>)
-                }));
+        const getSummary = async () => {
+            try {
+                const cacheSnapshot = await getDocsFromCache(destinationSummaryQuery);
+                if (!cacheSnapshot.empty) {
+                    const data = cacheSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as DestinationSummary));
+                    setDestinationSummary(data);
+                    setLoading(false);
+                }
+            } catch (err) { setLoading(false); }
 
-                setDestinationSummary(summaryData);
+            try {
+                const serverSnapshot = await getDocs(destinationSummaryQuery);
+                const serverData = serverSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as DestinationSummary));
+                setDestinationSummary(serverData);
                 setLoading(false);
-            },
-            (err) => {
-                console.error("Error in destination_summary subscription:", err);
-                setError(err.message);
-                setLoading(false);
-            }
-        );
+            } catch (err) { setLoading(false); }
 
-        return () => unsubscribe();
+        };
+
+        getSummary();
 
     }, [currentUser, authLoading, campaignId, cropId, fieldId, plotId]);
 

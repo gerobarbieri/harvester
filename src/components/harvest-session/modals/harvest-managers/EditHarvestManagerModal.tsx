@@ -6,6 +6,7 @@ import Modal from "../../../commons/Modal";
 import { useHarvestManagers } from "../../../../hooks/harvest-manager/useHarvestManagers";
 import { updateHarvestManager } from "../../../../services/harvestSession";
 import type { HarvestSession } from "../../../../types";
+import toast from "react-hot-toast";
 
 const EditManagerModal: FC<{
     session: HarvestSession,
@@ -20,13 +21,12 @@ const EditManagerModal: FC<{
     });
 
     const handleEditManagerSubmit = async (data: { managerId: string }) => {
-        try {
-            const selectedManager = harvestManagers?.find(m => m.id === data.managerId);
-            updateHarvestManager(session.id, { id: selectedManager.id, name: selectedManager.name })
-            onClose();
-        } catch (error) {
-            console.error('Error al cambiar el responsable:', error);
-        }
+        const selectedManager = harvestManagers?.find(m => m.id === data.managerId);
+        updateHarvestManager(session.id, { id: selectedManager.id, name: selectedManager.name }).catch(error => {
+            toast.error("Error al cambiar el responsable")
+        });
+        onClose()
+        toast.success("Se actualizo el responsable con exito!");
     };
 
     const managerOptions = harvestManagers.map(m => ({ id: m.id, name: m.name }));

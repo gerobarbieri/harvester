@@ -1,12 +1,31 @@
 import { collection, doc, increment, Timestamp, writeBatch } from "firebase/firestore";
 import { db } from "../firebase/firebase";
-import type { Silobag, MovementType, SilobagMovement } from "../types";
+import type { Silobag, MovementType, SilobagMovement, CampaignField, Crop } from "../types";
 import { toast } from "react-hot-toast";
 
-/**
- * AÑADE LAS OPERACIONES DE CREACIÓN DE SILOBOLSA A UN BATCH EXISTENTE.
- * @private
- */
+interface CreateSiloBagParams {
+    formData: {
+        name: string;
+        fieldId: string;
+        cropId: string;
+        initialKg: string;
+        details?: string;
+        location?: string;
+    };
+    currentUser: any; // Deberías tener un tipo User aquí
+    fields: Partial<CampaignField>[];
+    crops: Partial<Crop>[];
+}
+
+interface ExtractKgsParams {
+    siloBag: Silobag;
+    formData: {
+        kgChange: string;
+        details: string;
+    };
+    currentUser: any;
+}
+
 export const _prepareSiloBagCreation = (
     batch: any,
     siloBagData: Partial<Silobag>,
@@ -39,13 +58,26 @@ export const _prepareSiloBagCreation = (
     return siloBagRef;
 };
 
-// --- SERVICIO PÚBLICO PARA CREAR UN SILO MANUALMENTE ---
-export const createSilobag = async (siloBagData: Partial<Silobag>, optimisticHandlers: { add: (silo: Silobag) => void; remove: (id: string) => void; }) => {
-    const optimisticId = `optimistic-${Date.now()}`;
-    const optimisticSilo = {
-        id: optimisticId, ...siloBagData, status: 'active', current_kg: siloBagData.initial_kg, lost_kg: 0
-    } as Silobag;
-    optimisticHandlers.add(optimisticSilo);
+export const createSilobag = async (params: CreateSiloBagParams) => {
+    const { formData, currentUser, fields, crops } = params;
+    const { name, fieldId, cropId, initialKg, details, location } = formData;
+
+    const field = fields.find(cf => cf.field.id === fieldId)?.field;
+    const crop = crops.find(c => c.id === cropId);
+
+    if (!field || !crop) {
+        throw new Error("El campo o el cultivo seleccionado no son válidos.");
+    }
+
+    const siloBagData: Partial<Silobag> = {
+        name,
+        location: location,
+        organization_id: currentUser.organizationId,
+        initial_kg: parseFloat(initialKg),
+        field: { id: field.id, name: field.name },
+        crop: { id: crop.id, name: crop.name },
+        details: details
+    };
 
     const batch = writeBatch(db);
     _prepareSiloBagCreation(batch, siloBagData, 'creation');
@@ -54,42 +86,43 @@ export const createSilobag = async (siloBagData: Partial<Silobag>, optimisticHan
         await batch.commit();
     } catch (error) {
         console.error("Error al crear el silo:", error);
-        optimisticHandlers.remove(optimisticId);
         toast.error('No se pudo guardar el silobolsa.');
         throw error;
     }
 };
 
 // --- SERVICIO DE EXTRACCIÓN ---
-export const extractKgsSilobag = async (siloBag: Silobag, movement: Partial<SilobagMovement>, updateOptimistic: (id: string, updates: Partial<Silobag>) => void) => {
-    const originalKgs = siloBag.current_kg;
+export const extractKgsSilobag = async (params: ExtractKgsParams) => {
+    const { siloBag, formData, currentUser } = params;
+    
+    const exitMovement: Partial<SilobagMovement> = {
+        type: "substract" as MovementType,
+        kg_change: -parseFloat(formData.kgChange),
+        organization_id: currentUser.organizationId,
+        date: Timestamp.now(),
+        details: formData.details
+    };
+
     const batch = writeBatch(db);
-
-    // UI Optimista
-    updateOptimistic(siloBag.id, { current_kg: originalKgs + (movement.kg_change || 0) });
-
     const siloBagRef = doc(db, 'silo_bags', siloBag.id);
     const movementRef = doc(collection(db, `silo_bags/${siloBag.id}/movements`));
 
-    batch.update(siloBagRef, { current_kg: increment(movement.kg_change) });
-    batch.set(movementRef, movement);
+    batch.update(siloBagRef, { current_kg: increment(exitMovement.kg_change) });
+    batch.set(movementRef, exitMovement);
 
     try {
         await batch.commit();
     } catch (error) {
         console.error("Error al registrar extracción:", error);
-        updateOptimistic(siloBag.id, { current_kg: originalKgs });
         toast.error('No se pudo guardar la extracción.');
         throw error;
     }
 };
 
 // --- SERVICIO DE CIERRE ---
-export const closeSilobag = async (siloBag: Silobag, details: string, updateOptimistic: (id: string, updates: Partial<Silobag>) => void) => {
-    const originalState = { status: siloBag.status, lost_kg: siloBag.lost_kg, current_kg: siloBag.current_kg };
-    const batch = writeBatch(db);
+export const closeSilobag = async (siloBag: Silobag, details: string) => {
 
-    updateOptimistic(siloBag.id, { status: 'closed', lost_kg: siloBag.current_kg, current_kg: 0 });
+    const batch = writeBatch(db);
 
     const siloBagRef = doc(db, `silo_bags/${siloBag.id}`);
     batch.update(siloBagRef, { status: "closed", lost_kg: siloBag.current_kg, current_kg: 0 });
@@ -110,7 +143,6 @@ export const closeSilobag = async (siloBag: Silobag, details: string, updateOpti
         await batch.commit();
     } catch (error) {
         console.error("Error al cerrar el silo:", error);
-        updateOptimistic(siloBag.id, originalState);
         toast.error('No se pudo cerrar el silobolsa.');
         throw error;
     }

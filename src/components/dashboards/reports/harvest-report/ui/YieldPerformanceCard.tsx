@@ -9,7 +9,6 @@ interface YieldPerformanceCardProps {
 }
 
 const YieldPerformanceCard: FC<YieldPerformanceCardProps> = ({ realVsProjected, estimatedYield, realYield }) => {
-    console.log(realVsProjected, realYield, estimatedYield)
     const percentageDifference = estimatedYield > 0 ? (realVsProjected / estimatedYield) * 100 : 0;
     const isPositive = realVsProjected >= 0;
     const colorClass = isPositive ? 'text-green-600' : 'text-red-600';

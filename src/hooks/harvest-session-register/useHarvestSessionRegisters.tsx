@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import useAuth from '../../context/auth/AuthContext';
 import type { HarvestSessionRegister } from '../../types';
-import { collection, onSnapshot, query, where } from 'firebase/firestore';
+import { collection, onSnapshot, orderBy, query, where } from 'firebase/firestore';
 import { db } from '../../firebase/firebase';
 
 export const useHarvestSessionRegisters = (harvestSessionId: string) => {
@@ -20,7 +20,7 @@ export const useHarvestSessionRegisters = (harvestSessionId: string) => {
         const harvestSessionRegistersQuery = query(
             collection(db, `harvest_sessions/${harvestSessionId}/registers`),
             where('organization_id', '==', currentUser.organizationId),
-
+            orderBy('date', 'desc')
         );
 
         const unsubscribe = onSnapshot(harvestSessionRegistersQuery,

@@ -1,11 +1,16 @@
-// src/hooks/silobags/useSiloBags.tsx
 import { useState, useEffect } from 'react';
 import useAuth from '../../context/auth/AuthContext';
 import type { Silobag } from '../../types';
-import { collection, onSnapshot, query, where } from 'firebase/firestore';
+import { collection, onSnapshot, query, where, getDocsFromCache, QueryConstraint } from 'firebase/firestore';
 import { db } from '../../firebase/firebase';
 
-export const useSiloBags = () => {
+interface SiloBagFilters {
+    fieldId: string;
+    cropId: string;
+    status: string;
+}
+
+export const useSiloBags = (filters: SiloBagFilters) => {
     const { currentUser, loading: authLoading } = useAuth();
     const [siloBags, setSiloBags] = useState<Silobag[]>([]);
     const [loading, setLoading] = useState<boolean>(true);
@@ -13,63 +18,41 @@ export const useSiloBags = () => {
 
     useEffect(() => {
         if (authLoading || !currentUser) {
-            if (!authLoading) {
-                setLoading(false);
-            }
+            if (!authLoading) setLoading(false);
             return;
         }
 
-        setLoading(true);
-        setError(null);
-
-        const siloBagsQuery = query(
-            collection(db, 'silo_bags'),
+        const constraints: QueryConstraint[] = [
             where('organization_id', '==', currentUser.organizationId)
-        );
+        ];
+
+        if (filters.fieldId && filters.fieldId !== 'todos') {
+            constraints.push(where('field.id', '==', filters.fieldId));
+        }
+        if (filters.cropId && filters.cropId !== 'todos') {
+            constraints.push(where('crop.id', '==', filters.cropId));
+        }
+        if (filters.status && filters.status !== 'todos') {
+            constraints.push(where('status', '==', filters.status));
+        }
+
+        const siloBagsQuery = query(collection(db, 'silo_bags'), ...constraints);
 
         const unsubscribe = onSnapshot(siloBagsQuery,
             (snapshot) => {
-                const serverSiloBags = snapshot.docs.map(doc => ({
-                    id: doc.id,
-                    ...(doc.data() as Omit<Silobag, 'id'>)
-                }));
-
-                setSiloBags(prevSiloBags => {
-                    const serverIds = new Set(serverSiloBags.map(s => s.id));
-                    const optimisticSilos = prevSiloBags.filter(
-                        s => s.id.startsWith('optimistic-') && !serverIds.has(s.id)
-                    );
-                    return [...serverSiloBags, ...optimisticSilos];
-                });
-
-                setLoading(false);
+                setSiloBags(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() as Silobag })));
+                if (loading) setLoading(false);
             },
             (err) => {
-                console.error("Error en la suscripción a silos:", err);
                 setError(err.message);
                 setLoading(false);
             }
         );
+        return () => {
+            unsubscribe();
+        };
 
-        return () => unsubscribe();
+    }, [currentUser, authLoading, filters.fieldId, filters.cropId]);
 
-    }, [currentUser, authLoading]);
-
-    const addOptimisticSiloBag = (siloBag: Silobag) => {
-        setSiloBags(prev => [siloBag, ...prev]);
-    };
-
-    const removeOptimisticSiloBag = (optimisticId: string) => {
-        setSiloBags(prev => prev.filter(s => s.id !== optimisticId));
-    };
-
-    const updateOptimisticSiloBag = (siloBagId: string, updates: Partial<Silobag>) => {
-        setSiloBags(prev =>
-            prev.map(silo =>
-                silo.id === siloBagId ? { ...silo, ...updates } : silo
-            )
-        );
-    };
-
-    return { siloBags, loading, error, addOptimisticSiloBag, removeOptimisticSiloBag, updateOptimisticSiloBag };
+    return { siloBags, loading, error };
 };

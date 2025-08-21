@@ -1,33 +1,28 @@
 // src/components/pwa/UpdateManager.tsx
 import { useEffect, useState } from 'react';
 import { useRegisterSW } from 'virtual:pwa-register/react';
-import { UploadCloud, Check } from 'lucide-react';
+import { UploadCloud } from 'lucide-react';
 import Card from '../commons/Card';
 import Button from '../commons/Button';
 
 function UpdateManager() {
-    const [registration, setRegistration] = useState<ServiceWorkerRegistration | null>(null);
-    const [isUpdating, setIsUpdating] = useState(false);
+    const [registration, setRegistration] = useState(null);
 
     const {
         needRefresh: [needRefresh],
-        updateServiceWorker,
+        updateServiceWorker
     } = useRegisterSW({
         onRegistered(r) {
             setRegistration(r);
         },
     });
 
-    const handleUpdate = () => {
-        setIsUpdating(true);
-        updateServiceWorker(true);
-    };
-
+    // EFECTO 1: Comprobación periódica cada hora
     useEffect(() => {
         if (registration) {
             const interval = setInterval(() => {
                 registration.update();
-            }, 3600 * 1000); // 1 hora
+            }, 7200 * 1000);
 
             return () => clearInterval(interval);
         }
@@ -35,15 +30,18 @@ function UpdateManager() {
 
     useEffect(() => {
         const handleVisibilityChange = () => {
-            if (document.visibilityState === 'visible' && registration) {
-                registration.update();
+            if (document.visibilityState === 'visible') {
+                registration?.update();
             }
         };
 
-        document.addEventListener('visibilitychange', handleVisibilityChange);
-        return () => {
-            document.removeEventListener('visibilitychange', handleVisibilityChange);
-        };
+        if (registration) {
+            document.addEventListener('visibilitychange', handleVisibilityChange);
+
+            return () => {
+                document.removeEventListener('visibilitychange', handleVisibilityChange);
+            };
+        }
     }, [registration]);
 
     if (needRefresh) {
@@ -59,14 +57,13 @@ function UpdateManager() {
                             Hemos lanzado mejoras importantes. Por favor, actualiza la aplicación para continuar.
                         </p>
                     </div>
-                    <div className="mt-6">
+                    <div className="mt-6 flex justify-center">
                         <Button
                             variant="primary"
-                            onClick={handleUpdate}
-                            isLoading={isUpdating}
+                            onClick={() => updateServiceWorker(true)}
                             className="w-full sm:w-auto sm:px-10"
                         >
-                            {isUpdating ? 'Actualizando...' : 'Actualizar Ahora'}
+                            Actualizar
                         </Button>
                     </div>
                 </Card>

@@ -87,13 +87,6 @@ const HarvestView = () => {
                 </div>
             </Card >
 
-            {/* Estadísticas del Día */}
-            {/* <HarvestStatsSection
-                    sessions={harvestSessions || []}
-                    loading={isLoading}
-                /> */}
-
-            {/* Listas de Sesiones */}
             <SessionsListSection
                 sessions={harvestSessions || []}
                 loading={isLoading}

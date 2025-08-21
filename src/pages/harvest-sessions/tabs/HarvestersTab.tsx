@@ -5,28 +5,22 @@ import Button from "../../../components/commons/Button";
 import Card from "../../../components/commons/Card";
 import ManageHarvestersModal from "../../../components/harvest-session/modals/harvesters/ManageHarvestersModal";
 import { upsertHarvesters } from "../../../services/harvestSession";
+import toast from "react-hot-toast";
 
 const HarvestersTab: FC = () => {
     const { harvestSession } = useOutletContext<any>();
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-    const [isSubmitting, setIsSubmitting] = useState(false);
 
     const handleEditSubmit = async (data: any) => {
-        setIsSubmitting(true);
-        try {
-            const updatedHarvesters = data.harvesters.map(h => ({
-                id: h.id,
-                name: h.name,
-                plot_map: h.plot_map || false,
-                harvested_hectares: parseFloat(h.harvested_hectares) || 0
-            }));
-            upsertHarvesters(harvestSession.id, updatedHarvesters)
-            setIsEditModalOpen(false);
-        } catch (error) {
-            console.error("Error al editar cosecheros:", error);
-        } finally {
-            setIsSubmitting(false);
-        }
+        upsertHarvesters({
+            harvestSessionId: harvestSession.id,
+            harvestersFormData: data.harvesters
+        }).catch(error => {
+            toast.error("Error al actualizar los cosecheros.")
+        })
+        toast.success("Cosecheros actualizados con exito!");
+        setIsEditModalOpen(false);
+
     };
 
     return (
@@ -36,7 +30,6 @@ const HarvestersTab: FC = () => {
                     isOpen={isEditModalOpen}
                     onClose={() => setIsEditModalOpen(false)}
                     onSubmit={handleEditSubmit}
-                    isSubmitting={isSubmitting}
                     harvestSession={harvestSession}
                 />
             )}

@@ -1,53 +1,59 @@
-// src/hooks/useHarvestSessionsByCampaign.ts
-
 import { useState, useEffect } from 'react';
 import type { HarvestSession } from '../../types';
-// Agregamos 'onSnapshot' al import
-import { collection, query, where, onSnapshot } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, getDocsFromCache, QueryConstraint } from 'firebase/firestore';
 import { db } from '../../firebase/firebase';
 import useAuth from '../../context/auth/AuthContext';
 
-export const useHarvestSessionsByCampaign = (campaignId: string) => {
+// 1. Definimos la interfaz para los filtros que aceptará el hook
+interface SessionFilters {
+    campaign: string
+    field: string;
+    crop: string;
+}
+
+// 2. El hook ahora acepta un segundo argumento: los filtros
+export const useHarvestSessionsByCampaign = (filters: SessionFilters) => {
     const { currentUser, loading: authLoading } = useAuth();
     const [sessions, setSessions] = useState<HarvestSession[]>([]);
     const [loading, setLoading] = useState<boolean>(true);
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
-        if (authLoading || !currentUser || !campaignId) {
-            if (!authLoading) {
-                setLoading(false);
-            }
+        if (authLoading || !currentUser || !filters.campaign) {
+            if (!authLoading) setLoading(false);
             return;
         }
 
-        setLoading(true);
-        setError(null);
-
-        const q = query(
-            collection(db, 'harvest_sessions'),
+        // 3. Construimos la consulta dinámicamente
+        const constraints: QueryConstraint[] = [
             where('organization_id', '==', currentUser.organizationId),
-            where('campaign.id', '==', campaignId)
-        );
+            where('campaign.id', '==', filters.campaign)
+        ];
 
-        // 2. Nos suscribimos a los cambios con onSnapshot
+        if (filters.field && filters.field !== 'all') {
+            constraints.push(where('field.id', '==', filters.field));
+        }
+        if (filters.crop && filters.crop !== 'all') {
+            constraints.push(where('crop.id', '==', filters.crop));
+        }
+
+        const q = query(collection(db, 'harvest_sessions'), ...constraints);
+
         const unsubscribe = onSnapshot(q,
             (snapshot) => {
-                const sessionsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as HarvestSession));
-                setSessions(sessionsData);
-                setLoading(false);
+                setSessions(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as HarvestSession)));
+                if (loading) setLoading(false);
             },
             (err) => {
-                console.error("Error en la suscripción a sesiones de cosecha:", err);
                 setError(err.message);
                 setLoading(false);
             }
         );
-
-        // 3. Devolvemos la función de limpieza
-        return () => unsubscribe();
-
-    }, [campaignId, currentUser, authLoading]);
+        return () => {
+            unsubscribe();
+        };
+        // 4. Añadimos los filtros al array de dependencias
+    }, [filters.campaign, currentUser, authLoading, filters.field, filters.crop]);
 
     return { sessions, loading, error };
 };

@@ -8,7 +8,7 @@ import Select from "../../../commons/form/Select";
 import Modal from "../../../commons/Modal";
 import type { HarvestSession } from "../../../../types";
 
-const ManageHarvestersModal: FC<{ isOpen: boolean, onClose: () => void, onSubmit: (data: any) => void, isSubmitting: boolean, harvestSession: HarvestSession }> = ({ isOpen, onClose, onSubmit, isSubmitting, harvestSession }) => {
+const ManageHarvestersModal: FC<{ isOpen: boolean, onClose: () => void, onSubmit: (data: any) => void, harvestSession: HarvestSession }> = ({ isOpen, onClose, onSubmit, harvestSession }) => {
     const { control, handleSubmit, setValue, getValues, watch, trigger } = useForm({
         defaultValues: {
             harvesters: harvestSession.harvesters.map(h => ({ ...h, harvested_hectares: h.harvested_hectares || 0 })),
@@ -110,7 +110,7 @@ const ManageHarvestersModal: FC<{ isOpen: boolean, onClose: () => void, onSubmit
                 </div>
                 <div className="flex justify-end gap-3 pt-4 border-t border-gray-100">
                     <Button variant="outline" type="button" onClick={onClose}>Cancelar</Button>
-                    <Button type="submit" isLoading={isSubmitting} disabled={exceedsTotal}>{isSubmitting ? 'Guardando...' : 'Guardar Cambios'}</Button>
+                    <Button type="submit" disabled={exceedsTotal}>Guardar Cambios</Button>
                 </div>
             </form>
         </Modal>

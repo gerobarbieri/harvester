@@ -27,7 +27,8 @@ export default defineConfig({
         description: "Harvest Control",
         start_url: "/",
         display: "standalone",
-        background_color: "#ffffff",
+        orientation: 'portrait',
+        background_color: "#111827",
         theme_color: "#111827",
         icons: [
           {
