@@ -37,7 +37,7 @@ class PrimingService {
                 this.queryWithMetrics(() => getDocs(query(collection(db, 'destinations'), where('organization_id', '==', organizationId))), '1. Catálogo: Destinos'),
                 this.queryWithMetrics(() => getDocs(query(collection(db, 'users'), where('organization_id', '==', organizationId))), '1. Catálogo: Usuarios'),
                 this.queryWithMetrics(() => getDocs(query(collection(db, 'silo_bags'), where('organization_id', '==', organizationId), where('status', '==', 'active'), orderBy('created_at', 'desc'), limit(50))), '1. Silobolsas Activos'),
-                this.queryWithMetrics(() => getDocs(query(collection(db, 'logistics'), where('organization_id', '==', organizationId), where('status', 'in', ['requested', 'in-route-to-field', 'loading']), orderBy('created_at', 'desc'), limit(20))), '1. Logística Activa'),
+                this.queryWithMetrics(() => getDocs(query(collection(db, 'logistics'), where('organization_id', '==', organizationId), where('status', 'in', ['in-route-to-field', 'loading']), orderBy('date', 'desc'), limit(50))), '1. Logística Activa'),
             ]);
             this.metrics.timings['stage1_base'] = Date.now() - stage1Start;
 

@@ -9,7 +9,7 @@ import { startOfDay, endOfDay } from 'date-fns';
  * Hook para obtener las órdenes de logística, ahora con capacidad de filtrar por rango de fechas.
  * @param dateRange - Un objeto con propiedades 'from' y 'to' (objetos Date).
  */
-export const useLogistics = (dateRange: { from: Date | null, to: Date | null }) => {
+export const useLogistics = (dateRange: { from: Date | null, to: Date | null }, selectedField: string) => {
     const { currentUser, loading: authLoading } = useAuth();
     const [logistics, setLogistics] = useState<Logistics[]>([]);
     const [loading, setLoading] = useState<boolean>(true);
@@ -36,8 +36,9 @@ export const useLogistics = (dateRange: { from: Date | null, to: Date | null }) 
         if (dateRange.to) {
             constraints.push(where('date', '<=', Timestamp.fromDate(endOfDay(dateRange.to))));
         }
-
-        // Añadimos el ordenamiento al final
+        if (selectedField && selectedField !== 'todos') {
+            constraints.push(where('field.id', '==', selectedField));
+        }
         constraints.push(orderBy('date', 'desc'));
 
         const logisticsQuery = query(collection(db, 'logistics'), ...constraints);
@@ -60,7 +61,7 @@ export const useLogistics = (dateRange: { from: Date | null, to: Date | null }) 
 
         return () => unsubscribe();
 
-    }, [currentUser, authLoading, dateRange.from, dateRange.to]); // Dependencias correctas
+    }, [currentUser, authLoading, dateRange.from, dateRange.to, selectedField]); // Dependencias correctas
 
     return { logistics, loading, error };
 };

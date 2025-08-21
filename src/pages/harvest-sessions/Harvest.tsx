@@ -18,11 +18,7 @@ const HarvestListView = () => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const navigate = useNavigate();
     const { campaign, loading: loadingCampaign } = useActiveCampaign();
-    const { sessions, loading: loadingSessions, error } = useHarvestSessionsByCampaign({
-        campaign: campaign?.id,
-        field: filters.field,
-        crop: filters.crop
-    });
+    const { sessions, loading: loadingSessions, error } = useHarvestSessionsByCampaign(campaign?.id);
 
 
 
@@ -33,23 +29,31 @@ const HarvestListView = () => {
         });
     }, []);
 
-    const getFilteredByTab = () => {
-        if (activeTab === 'todos') return sessions;
+    const getFilteredSessions = useCallback(() => {
+        let filteredData = sessions;
 
-        const statusMap = {
-            'pending': ['pending', 'Pendiente'],
-            'in-progress': ['in-progress', 'En Progreso'],
-            'finished': ['finished', 'Finalizado'] // Simplificado
-        };
+        if (filters.field !== 'all') {
+            filteredData = filteredData?.filter(session => session.field.id === filters.field);
+        }
 
-        const allowedStatuses = statusMap[activeTab] || [];
-        // Usamos optional chaining (?) por si filteredSessions es undefined al inicio
-        return sessions?.filter(session =>
-            allowedStatuses.includes(session.status)
-        ) || [];
-    };
+        if (filters.crop !== 'all') {
+            filteredData = filteredData?.filter(session => session.crop.id === filters.crop);
+        }
 
-    const finalFilteredSessions = getFilteredByTab();
+        if (activeTab !== 'todos') {
+            const statusMap: { [key: string]: string[] } = {
+                'pending': ['pending', 'Pendiente'],
+                'in-progress': ['in-progress', 'En Progreso'],
+                'finished': ['finished', 'Finalizado']
+            };
+            const allowedStatuses = statusMap[activeTab] || [];
+            filteredData = filteredData?.filter(session => allowedStatuses.includes(session.status));
+        }
+
+        return filteredData || [];
+    }, [sessions, filters, activeTab]);
+
+    const finalFilteredSessions = getFilteredSessions();
 
     const handleViewLot = (harvestSession: any) => {
         // Navegar a detalles de la sesión

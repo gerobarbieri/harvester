@@ -4,22 +4,14 @@ import { collection, query, where, onSnapshot, QueryConstraint } from 'firebase/
 import { db } from '../../firebase/firebase';
 import useAuth from '../../context/auth/AuthContext';
 
-// 1. Definimos la interfaz para los filtros que aceptará el hook
-interface SessionFilters {
-    campaign: string
-    field: string;
-    crop: string;
-}
-
-// 2. El hook ahora acepta un segundo argumento: los filtros
-export const useHarvestSessionsByCampaign = (filters: SessionFilters) => {
+export const useHarvestSessionsByCampaign = (campaignId: string) => {
     const { currentUser, loading: authLoading } = useAuth();
     const [sessions, setSessions] = useState<HarvestSession[]>([]);
     const [loading, setLoading] = useState<boolean>(true);
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
-        if (authLoading || !currentUser || !filters.campaign) {
+        if (authLoading || !currentUser || !campaignId) {
             if (!authLoading) setLoading(false);
             return;
         }
@@ -27,15 +19,8 @@ export const useHarvestSessionsByCampaign = (filters: SessionFilters) => {
         // 3. Construimos la consulta dinámicamente
         const constraints: QueryConstraint[] = [
             where('organization_id', '==', currentUser.organizationId),
-            where('campaign.id', '==', filters.campaign)
+            where('campaign.id', '==', campaignId)
         ];
-
-        if (filters.field && filters.field !== 'all') {
-            constraints.push(where('field.id', '==', filters.field));
-        }
-        if (filters.crop && filters.crop !== 'all') {
-            constraints.push(where('crop.id', '==', filters.crop));
-        }
 
         const q = query(collection(db, 'harvest_sessions'), ...constraints);
 
@@ -53,7 +38,7 @@ export const useHarvestSessionsByCampaign = (filters: SessionFilters) => {
             unsubscribe();
         };
         // 4. Añadimos los filtros al array de dependencias
-    }, [filters.campaign, currentUser, authLoading, filters.field, filters.crop]);
+    }, [campaignId, currentUser, authLoading]);
 
     return { sessions, loading, error };
 };

@@ -39,10 +39,11 @@ const Logistics = () => {
     const { logistics, loading: loadingLogistics } = useLogistics(selectedDateRange, selectedField);
 
     const statusOptions = [
-        { value: 'requested', label: 'Solicitado', color: 'bg-gray-100 text-gray-800', shortLabel: 'Solicitado' },
         { value: 'in-route-to-field', label: 'En Camino a Campo', color: 'bg-blue-100 text-blue-800', shortLabel: 'En Camino' },
         { value: 'loading', label: 'Cargando', color: 'bg-yellow-100 text-yellow-800', shortLabel: 'Cargando' },
-        { value: 'in-transit', label: 'En Camino a Destino', color: 'bg-green-100 text-green-800', shortLabel: 'En Tránsito' }
+        { value: 'in-transit', label: 'En Camino a Destino', color: 'bg-green-100 text-green-800', shortLabel: 'En Tránsito' },
+        { value: 'closed', label: 'Entregado', color: 'bg-grey-100 text-grey-800', shortLabel: 'Entregado' },
+
     ];
 
     const suggestedOrderNumber = useMemo(() => {
@@ -70,7 +71,7 @@ const Logistics = () => {
             console.error('Error al actualizar estado:', error);
             toast.error("No se pudo actualizar el estado.");
         });
-        toast.success(`Estado actualizado a "${newStatus}"`);
+        toast.success(`Estado actualizado con exito!`);
         setSelectedTruck(null);
         setModal(null);
 

@@ -1,5 +1,5 @@
 import { type FC, useMemo } from "react";
-import type { Campaign, Crop, Field, HarvestSession, Plot } from "../../../../types";
+import type { Campaign, HarvestSession } from "../../../../types";
 import Card from "../../../commons/Card";
 import Select from "../../../commons/form/Select";
 
@@ -29,9 +29,11 @@ const ReportsFilters: FC<FilterComponentProps> = ({
     sessionsForCampaign
 
 }) => {
+
     const availableCrops = useMemo(() => {
         if (!sessionsForCampaign) return [];
         const unique = new Map(sessionsForCampaign.map(s => [s.crop.id, s.crop]));
+        console.log(Array.from(unique.values()))
         return Array.from(unique.values());
     }, [sessionsForCampaign]);
 
@@ -48,11 +50,14 @@ const ReportsFilters: FC<FilterComponentProps> = ({
         const unique = new Map(filtered.map(s => [s.plot.id, s.plot]));
         return Array.from(unique.values());
     }, [sessionsForCampaign, filters.field]);
+
     const campaignOptions = useMemo(() => campaigns.map(c => ({ value: c.id, label: c.name })), [campaigns]);
     const cropOptions = useMemo(() => [{ value: 'all', label: 'Todos los cultivos' }, ...availableCrops.map(c => ({ value: c.id, label: c.name }))], [availableCrops]);
     const fieldOptions = useMemo(() => [{ value: 'all', label: 'Todos los campos' }, ...availableFields.map(f => ({ value: f.id, label: f.name }))], [availableFields]);
     const plotOptions = useMemo(() => [{ value: 'all', label: 'Todos los lotes' }, ...availablePlots.map(p => ({ value: p.id, label: p.name }))], [availablePlots]);
 
+    console.log(availableCrops)
+    console.log(cropOptions)
     return (
         <Card>
             <h2 className="text-lg font-bold text-text-primary mb-4">Filtros</h2>
