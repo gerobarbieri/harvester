@@ -1,16 +1,13 @@
 import { type FC, useMemo } from "react";
-import type { Campaign, HarvestSession } from "../../../types";
+import type { HarvestSession } from "../../../types";
 import Select from "../../commons/form/Select";
 import Card from "../../commons/Card";
-import useAuth from "../../../context/auth/AuthContext";
 
-// Define la forma del objeto de filtros que recibe
 export interface SessionsFiltersProps {
     crop: string;
     field: string;
 }
 
-// Define todas las props que el componente necesita del padre
 interface FilterComponentProps {
     filters: SessionsFiltersProps;
     onFilterChange: (filterName: keyof SessionsFiltersProps, value: string) => void;
