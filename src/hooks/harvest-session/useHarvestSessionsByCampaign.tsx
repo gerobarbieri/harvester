@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import type { HarvestSession } from '../../types';
-import { collection, query, where, onSnapshot, getDocsFromCache, QueryConstraint } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, QueryConstraint } from 'firebase/firestore';
 import { db } from '../../firebase/firebase';
 import useAuth from '../../context/auth/AuthContext';
 
