@@ -2,10 +2,10 @@ import { createRoot } from 'react-dom/client'
 import './app.css'
 import App from './App.tsx'
 import { BrowserRouter } from "react-router";
-import { AuthProvider } from './context/auth/AuthContext.tsx';
-import UpdateManager from './components/pwa/UpdateManager.tsx';
-import { SyncProvider } from './context/sync/SyncProvider.tsx';
+import { AuthProvider } from './shared/context/auth/AuthContext.tsx';
+import { SyncProvider } from './shared/context/sync/SyncProvider.tsx';
 import { Toaster } from 'react-hot-toast';
+import UpdateManager from './shared/components/commons/UpdateManager.tsx';
 
 createRoot(document.getElementById('root')!).render(
   <AuthProvider>
@@ -18,7 +18,6 @@ createRoot(document.getElementById('root')!).render(
         position="top-right"
         toastOptions={{
           duration: 4000,
-          // Estilos base para todos los toasts
           style: {
             background: 'var(--color-surface)',
             color: 'var(--color-text-primary)',
@@ -26,14 +25,12 @@ createRoot(document.getElementById('root')!).render(
             boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)',
             fontWeight: '600',
           },
-          // Estilos específicos por tipo
           success: {
             iconTheme: { primary: 'var(--color-primary-dark)', secondary: 'white' },
           },
           error: {
             iconTheme: { primary: '#ef4444', secondary: 'white' },
           },
-          // Nuevo estilo para 'warning' (amarillo)
           custom: {
             iconTheme: { primary: '#f59e0b', secondary: 'white' },
           }
