@@ -47,6 +47,7 @@ export const _prepareSiloBagCreation = (
     const initialMovementData: Partial<SilobagMovement> = {
         type: movementType,
         organization_id: siloBagData.organization_id,
+        field: { id: siloBagData.field.id },
         kg_change: siloBagData.initial_kg,
         date: Timestamp.now(),
         details: movementType === 'creation' ? "Creación manual de silobolsa." : "Entrada inicial por cosecha."
@@ -97,6 +98,7 @@ export const extractKgsSilobag = async (params: ExtractKgsParams) => {
 
     const exitMovement: Partial<SilobagMovement> = {
         type: "substract" as MovementType,
+        field: { id: siloBag.field.id },
         kg_change: -parseFloat(formData.kgChange),
         organization_id: currentUser.organizationId,
         date: Timestamp.now(),
@@ -131,6 +133,7 @@ export const closeSilobag = async (siloBag: Silobag, formData: CloseData) => {
         const adjustmentMovement: Partial<SilobagMovement> = {
             organization_id: siloBag.organization_id,
             type: "loss",
+            field: { id: siloBag.field.id },
             kg_change: -siloBag.current_kg,
             date: Timestamp.now(),
             details: `Cierre de silo. Motivo: ${formData.details}`

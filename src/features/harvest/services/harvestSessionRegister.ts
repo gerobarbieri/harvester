@@ -41,6 +41,7 @@ const commitBatch = async (batch: any, messages: { success: string, error: strin
 const prepareRegisterData = (data: any, silo_bag?: any, destination?: Destination) => {
     return {
         organization_id: data.organization_id,
+        field: data.field,
         date: Timestamp.fromDate(new Date()),
         humidity: parseFloat(data.humidity),
         weight_kg: parseFloat(data.weight_kg),
@@ -48,7 +49,7 @@ const prepareRegisterData = (data: any, silo_bag?: any, destination?: Destinatio
         details: data.observations,
         ...(data.type === 'truck' ? {
             truck: { driver: data.driver, license_plate: data.license_plate },
-            destination: destination || null,
+            destination: { id: destination.id, name: destination.name },
             ctg: data.ctg || null,
             cpe: data.cpe || null
         } : { silo_bag: silo_bag })
@@ -97,11 +98,11 @@ export const addRegister = (params: AddRegisterParams) => {
             const siloRef = doc(db, 'silo_bags', silobag.id);
             const movementRef = doc(collection(db, `silo_bags/${silobag.id}/movements`), registerRef.id);
             batch.update(siloRef, { current_kg: increment(weightKg) });
-            batch.set(movementRef, { type: 'harvest_entry', kg_change: weightKg, date: Timestamp.now(), organization_id: formData.organization_id, details: "Entrada por cosecha." });
+            batch.set(movementRef, { type: 'harvest_entry', kg_change: weightKg, date: Timestamp.now(), organization_id: formData.organization_id, field: { id: harvestSession.field.id }, details: "Entrada por cosecha." });
         }
     }
 
-    const registerData = prepareRegisterData(formData, siloBagForRegister, destination);
+    const registerData = prepareRegisterData({ ...formData, field: { id: harvestSession.field.id } }, siloBagForRegister, destination);
     batch.set(registerRef, registerData);
 
     return commitBatch(batch, { success: "Registro añadido con éxito.", error: 'Falló la operación combinada.' });

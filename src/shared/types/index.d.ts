@@ -3,7 +3,8 @@ import type { FieldValue, Timestamp } from "firebase/firestore";
 export interface User {
     organizationId: string;
     role: string;
-    uid: string
+    uid: string;
+    accessible_field_ids?: string[];
 }
 
 export interface Campaign {
@@ -111,6 +112,7 @@ export interface Silobag {
 export interface SilobagMovement {
     id: string
     organization_id: string;
+    field: Partial<Field>
     date: Timestamp;
     kg_change: number;
     details?: string;

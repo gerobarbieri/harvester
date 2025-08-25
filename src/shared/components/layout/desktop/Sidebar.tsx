@@ -17,23 +17,19 @@ interface DesktopSidebarProps {
 }
 
 export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({ navItems }) => {
-    // 3. Obtén el rol del usuario actual desde el contexto
     const { currentUser } = useAuth();
 
     return (
         <aside className="hidden lg:flex fixed left-0 top-0 w-20 h-full bg-secondary p-3 flex-col items-center z-50">
             <div className="w-14 h-14 flex items-center justify-center mt-2 mb-6">
-                {/* 2. Reemplaza el <span> por <img> */}
+
                 <img src={logo} alt="Logo de Hallmay" className="h-18 w-18 object-contain" />
             </div>
             <nav className="flex-1 flex flex-col space-y-3 items-center">
                 {navItems.map((item) => {
-                    // 4. Filtra los ítems antes de renderizarlos según el rol
                     const canView = !item.roles || (currentUser && item.roles.includes(currentUser.role));
 
-                    if (!canView) {
-                        return null; // Si el usuario no tiene el rol, no renderiza el ítem
-                    }
+                    if (!canView) return null;
 
                     const Icon = item.icon;
                     return (

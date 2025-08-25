@@ -12,7 +12,7 @@ const navItems = [
         name: 'Reportes',
         icon: ChartColumnIncreasing,
         path: '/reports',
-        roles: ['admin', 'owner'] // Solo visible para administradores
+        roles: ['admin', 'owner']
     },
     { name: 'Campaña', icon: ClipboardList, path: '/harvest-sessions' },
     { name: 'Logística', icon: Truck, path: '/logistics' },
