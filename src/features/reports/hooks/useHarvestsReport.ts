@@ -1,4 +1,3 @@
-// src/hooks/summaries/useHarvestSummary.tsx
 import { useState, useEffect } from 'react';
 import type { HarvestSummary } from '../../../shared/types';
 import { doc, onSnapshot } from 'firebase/firestore';
@@ -17,51 +16,42 @@ export const useHarvestSummary = (
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
-        // Mínimo requerido: campaign + crop
         if (authLoading || !currentUser || !campaignId || !cropId) {
             if (!authLoading) setLoading(false);
+            setHarvestSummary(null);
             return;
         }
 
         setLoading(true);
         setError(null);
 
-        // Armar document ID simplemente concatenando los valores que existen
         let documentId = `camp_${campaignId}_crop_${cropId}`;
-        let aggregationLevel = 'crop';
 
-        if (fieldId) {
+        if (fieldId && fieldId !== 'all') {
             documentId += `_field_${fieldId}`;
-            aggregationLevel = 'field';
         }
 
-        if (plotId && fieldId) { // Plot requiere field
+        if (plotId && plotId !== 'all' && fieldId && fieldId !== 'all') {
             documentId += `_plot_${plotId}`;
-            aggregationLevel = 'plot';
         }
 
         const harvestSummaryDoc = doc(db, 'harvest_analytics_summary', documentId);
 
-        const unsubscribe = onSnapshot(harvestSummaryDoc,
-            (snapshot) => {
-                if (snapshot.exists()) {
-                    const harvestSummaryData = { id: snapshot.id, ...snapshot.data() };
-                    setHarvestSummary(harvestSummaryData as HarvestSummary);
-                } else {
-                    console.error("No hay harvest summary.");
-                    setError("El resumen de cosecha no fue encontrado.");
-                }
-                setLoading(false);
-            },
-            (err) => {
-                console.error("Error:", err);
-                setError(err.message);
-                setLoading(false);
+        const unsubscribe = onSnapshot(harvestSummaryDoc, (snapshot) => {
+            if (snapshot.exists()) {
+                const harvestSummaryData = { id: snapshot.id, ...snapshot.data() };
+                setHarvestSummary(harvestSummaryData as HarvestSummary);
+            } else {
+                setHarvestSummary(null);
             }
-        );
+            setLoading(false);
+        }, (err) => {
+            console.error("Error:", err);
+            setError(err.message);
+            setLoading(false);
+        });
 
         return () => unsubscribe();
-
     }, [currentUser, authLoading, campaignId, cropId, fieldId, plotId]);
 
     return { harvestSummary, loading, error };

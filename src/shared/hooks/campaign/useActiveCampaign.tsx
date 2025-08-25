@@ -31,7 +31,7 @@ export const useActiveCampaign = () => {
                 }
             },
             (err) => {
-                console.error("Error en la suscripción a cultivos:", err);
+
                 setError(err.message);
                 setLoading(false);
             }

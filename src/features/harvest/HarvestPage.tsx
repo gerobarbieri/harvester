@@ -17,15 +17,10 @@ const HarvestView = () => {
 
     // Hooks principales
     const { campaign, loading: loadingActiveCampaign, error: activeCampaignError } = useActiveCampaign();
-    const { fieldOptions, loading: loadingCampaignFields, error: campaignFieldsError } = useCampaignFields(campaign?.id);
+    const { campaignFields, loading: loadingCampaignFields, error: campaignFieldsError } = useCampaignFields(campaign?.id);
     const { sessions: harvestSessions, loading: loadingSessions } = useActiveHarvestSessions(campaign?.id, selectedFieldId);
 
-    // Opciones para el selector de campos
-    const fieldSelectOptions = useMemo(() => [
-        { id: 'all', name: 'Todos los campos', value: 'all', label: 'Todos los campos' },
-        ...fieldOptions
-    ], [fieldOptions]);
-
+    const fieldOptions = useMemo(() => [{ value: 'all', label: 'Todos los campos' }, ...campaignFields.map(f => ({ value: f.field.id, label: f.field.name }))], [campaignFields]);
 
     const isLoading = loadingActiveCampaign || loadingCampaignFields || loadingSessions;
 
@@ -76,7 +71,7 @@ const HarvestView = () => {
                                 label="Campo"
                                 name="fieldId"
                                 placeholder={loadingCampaignFields ? "Cargando campos..." : "Todos los campos"}
-                                items={fieldSelectOptions}
+                                items={fieldOptions}
                                 value={field.value}
                                 onChange={field.onChange}
                                 disabled={loadingCampaignFields || !!campaignFieldsError}

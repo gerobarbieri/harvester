@@ -1,21 +1,15 @@
-// src/hooks/harvest-session/useActiveHarvestSessions.tsx
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { db } from '../../../shared/firebase/firebase';
 import useAuth from '../../../shared/context/auth/AuthContext';
 import type { HarvestSession } from '../../../shared/types';
+import { createSecurityQuery } from '../../../shared/firebase/queryBuilder';
 
 export const useActiveHarvestSessions = (campaignId: string, selectedFieldId?: string) => {
     const { currentUser, loading: authLoading } = useAuth();
     const [sessions, setSessions] = useState<HarvestSession[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-
-    // Memoizar la query key para evitar re-renders innecesarios
-    const queryKey = useMemo(() =>
-        `${currentUser?.organizationId}-${campaignId}-${selectedFieldId}`,
-        [currentUser?.organizationId, campaignId, selectedFieldId]
-    );
 
     useEffect(() => {
         if (authLoading || !currentUser || !campaignId) {
@@ -26,50 +20,37 @@ export const useActiveHarvestSessions = (campaignId: string, selectedFieldId?: s
         setLoading(true);
         setError(null);
 
-        // Query base: solo sessions activas de la campaña y organización
-        let baseQuery = query(
-            collection(db, 'harvest_sessions'),
-            where('organization_id', '==', currentUser.organizationId),
-            where('campaign.id', '==', campaignId),
-            where('status', 'in', ['pending', 'in-progress']) // Solo activas
-        );
+        const securityConstraints = createSecurityQuery(currentUser)
+            .withFieldAccess('field.id')
+            .build();
 
-        // Si se selecciona un campo específico, agregar filtro
+        let finalConstraints = [
+            ...securityConstraints,
+            where('campaign.id', '==', campaignId),
+            where('status', 'in', ['pending', 'in-progress'])
+        ];
+
         if (selectedFieldId && selectedFieldId !== 'all') {
-            baseQuery = query(
-                collection(db, 'harvest_sessions'),
-                where('organization_id', '==', currentUser.organizationId),
-                where('campaign.id', '==', campaignId),
-                where('field.id', '==', selectedFieldId), // Filtro de campo
-                where('status', 'in', ['pending', 'in-progress'])
-            );
+            finalConstraints.push(where('field.id', '==', selectedFieldId));
         }
 
-        const unsubscribe = onSnapshot(
-            baseQuery,
-            (snapshot) => {
-                const sessionsData = snapshot.docs.map(doc => ({
-                    id: doc.id,
-                    ...doc.data()
-                } as HarvestSession));
+        const finalQuery = query(collection(db, 'harvest_sessions'), ...finalConstraints);
 
-                setSessions(sessionsData);
-                setLoading(false);
-            },
-            (err) => {
-                console.error("Error en active harvest sessions:", err);
-                setError(err.message);
-                setLoading(false);
-            }
-        );
+        const unsubscribe = onSnapshot(finalQuery, (snapshot) => {
+            const sessionsData = snapshot.docs.map(doc => ({
+                id: doc.id,
+                ...doc.data()
+            } as HarvestSession));
+            setSessions(sessionsData);
+            setLoading(false);
+        }, (err) => {
+            console.error("Error en active harvest sessions:", err);
+            setError(err.message);
+            setLoading(false);
+        });
 
         return () => unsubscribe();
+    }, [currentUser, authLoading, campaignId, selectedFieldId]);
 
-    }, [currentUser, authLoading, queryKey]); // Usar queryKey en deps
-
-    return {
-        sessions,
-        loading,
-        error
-    };
+    return { sessions, loading, error };
 };

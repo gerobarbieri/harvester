@@ -1,11 +1,9 @@
 import { useState, useEffect } from 'react';
-import { collection, query, orderBy, where, onSnapshot, limit } from 'firebase/firestore';
+import { collection, query, orderBy, onSnapshot } from 'firebase/firestore';
 import { db } from '../../../shared/firebase/firebase';
 import useAuth from '../../../shared/context/auth/AuthContext';
 import type { SilobagMovement } from '../../../shared/types';
-
-// Escuchamos los 50 movimientos más recientes. Es un buen balance.
-const REALTIME_LIMIT = 50;
+import { createSecurityQuery } from '../../../shared/firebase/queryBuilder';
 
 export const useSiloBagMovements = (siloBagId?: string) => {
     const { currentUser, loading: authLoading } = useAuth();
@@ -20,39 +18,28 @@ export const useSiloBagMovements = (siloBagId?: string) => {
             return;
         }
 
-        setLoading(true);
-        setError(null);
+        const securityConstraints = createSecurityQuery(currentUser).build();
 
-        const collectionRef = collection(db, `silo_bags/${siloBagId}/movements`);
         const q = query(
-            collectionRef,
-            where('organization_id', '==', currentUser.organizationId),
-            orderBy("date", "desc"),
-            limit(REALTIME_LIMIT) // Limitamos la escucha en tiempo real
+            collection(db, `silo_bags/${siloBagId}/movements`),
+            ...securityConstraints,
+            orderBy("date", "desc")
         );
 
-        const unsubscribe = onSnapshot(q,
-            (snapshot) => {
-                const movementsData = snapshot.docs.map(doc => {
-                    const data = doc.data();
-                    return {
-                        id: doc.id,
-                        ...data
-                    } as SilobagMovement;
-                });
-
-                setMovements(movementsData);
-                setLoading(false);
-            },
-            (err) => {
-                console.error("Error en la suscripción a movimientos:", err);
-                setError(err);
-                setLoading(false);
-            }
-        );
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+            const movementsData = snapshot.docs.map(doc => ({
+                id: doc.id,
+                ...doc.data()
+            } as SilobagMovement));
+            setMovements(movementsData);
+            setLoading(false);
+        }, (err) => {
+            console.error("Error en la suscripción a movimientos:", err);
+            setError(err);
+            setLoading(false);
+        });
 
         return () => unsubscribe();
-
     }, [siloBagId, currentUser, authLoading]);
 
     return { movements, loading, error };

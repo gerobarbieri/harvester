@@ -3,6 +3,7 @@ import useAuth from '../../../shared/context/auth/AuthContext';
 import type { Silobag } from '../../../shared/types';
 import { collection, onSnapshot, query, where, QueryConstraint } from 'firebase/firestore';
 import { db } from '../../../shared/firebase/firebase';
+import { createSecurityQuery } from '../../../shared/firebase/queryBuilder';
 
 interface SiloBagFilters {
     fieldId: string;
@@ -22,9 +23,11 @@ export const useSiloBags = (filters: SiloBagFilters) => {
             return;
         }
 
-        const constraints: QueryConstraint[] = [
-            where('organization_id', '==', currentUser.organizationId)
-        ];
+        const securityConstraints = createSecurityQuery(currentUser)
+            .withFieldAccess('field.id')
+            .build();
+
+        const constraints: QueryConstraint[] = [...securityConstraints];
 
         if (filters.fieldId && filters.fieldId !== 'all') {
             constraints.push(where('field.id', '==', filters.fieldId));
@@ -38,21 +41,16 @@ export const useSiloBags = (filters: SiloBagFilters) => {
 
         const siloBagsQuery = query(collection(db, 'silo_bags'), ...constraints);
 
-        const unsubscribe = onSnapshot(siloBagsQuery,
-            (snapshot) => {
-                setSiloBags(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() as Silobag })));
-                if (loading) setLoading(false);
-            },
-            (err) => {
-                setError(err.message);
-                setLoading(false);
-            }
-        );
-        return () => {
-            unsubscribe();
-        };
+        const unsubscribe = onSnapshot(siloBagsQuery, (snapshot) => {
+            setSiloBags(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() as Silobag })));
+            if (loading) setLoading(false);
+        }, (err) => {
+            setError(err.message);
+            setLoading(false);
+        });
 
-    }, [currentUser, authLoading, filters.fieldId, filters.cropId]);
+        return () => unsubscribe();
+    }, [currentUser, authLoading, filters]);
 
     return { siloBags, loading, error };
 };

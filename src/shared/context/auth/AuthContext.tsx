@@ -30,11 +30,13 @@ export const AuthProvider = ({ children }) => {
                 const idTokenResult = await user.getIdTokenResult();
                 const organizationId = idTokenResult.claims.orgId as string;
                 const role = idTokenResult.claims.role as string;
+                const accessible_field_ids = idTokenResult.claims.accessibleFieldIds as string[] || [];
 
                 setCurrentUser({
                     organizationId,
                     role,
-                    uid: user.uid
+                    uid: user.uid,
+                    accessibleFieldIds: accessible_field_ids
                 });
             } else {
                 setCurrentUser(null);

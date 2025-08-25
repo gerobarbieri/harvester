@@ -4,11 +4,8 @@ import type { Logistics } from '../../../shared/types';
 import { collection, onSnapshot, query, where, orderBy, Timestamp, QueryConstraint } from 'firebase/firestore';
 import { db } from '../../../shared/firebase/firebase';
 import { startOfDay, endOfDay } from 'date-fns';
+import { createSecurityQuery } from '../../../shared/firebase/queryBuilder';
 
-/**
- * Hook para obtener las órdenes de logística, ahora con capacidad de filtrar por rango de fechas.
- * @param dateRange - Un objeto con propiedades 'from' y 'to' (objetos Date).
- */
 export const useLogistics = (dateRange: { from: Date | null, to: Date | null }, selectedField: string) => {
     const { currentUser, loading: authLoading } = useAuth();
     const [logistics, setLogistics] = useState<Logistics[]>([]);
@@ -21,15 +18,12 @@ export const useLogistics = (dateRange: { from: Date | null, to: Date | null }, 
             return;
         }
 
-        setLoading(true);
-        setError(null);
+        const securityConstraints = createSecurityQuery(currentUser)
+            .withFieldAccess('field.id')
+            .build();
 
-        // 1. Empezamos con la consulta base
-        let constraints: QueryConstraint[] = [
-            where('organization_id', '==', currentUser.organizationId)
-        ];
+        let constraints: QueryConstraint[] = [...securityConstraints];
 
-        // 2. Añadimos los filtros de fecha de forma dinámica
         if (dateRange.from) {
             constraints.push(where('date', '>=', Timestamp.fromDate(startOfDay(dateRange.from))));
         }
@@ -43,25 +37,21 @@ export const useLogistics = (dateRange: { from: Date | null, to: Date | null }, 
 
         const logisticsQuery = query(collection(db, 'logistics'), ...constraints);
 
-        const unsubscribe = onSnapshot(logisticsQuery,
-            (snapshot) => {
-                const logisticsData = snapshot.docs.map(doc => ({
-                    id: doc.id,
-                    ...(doc.data() as Omit<Logistics, 'id'>)
-                }));
-                setLogistics(logisticsData);
-                setLoading(false);
-            },
-            (err) => {
-                console.error("Error en la suscripción a logística:", err);
-                setError(err.message);
-                setLoading(false);
-            }
-        );
+        const unsubscribe = onSnapshot(logisticsQuery, (snapshot) => {
+            const logisticsData = snapshot.docs.map(doc => ({
+                id: doc.id,
+                ...(doc.data() as Omit<Logistics, 'id'>)
+            }));
+            setLogistics(logisticsData);
+            setLoading(false);
+        }, (err) => {
+            console.error("Error en la suscripción a logística:", err);
+            setError(err.message);
+            setLoading(false);
+        });
 
         return () => unsubscribe();
-
-    }, [currentUser, authLoading, dateRange.from, dateRange.to, selectedField]); // Dependencias correctas
+    }, [currentUser, authLoading, dateRange.from, dateRange.to, selectedField]);
 
     return { logistics, loading, error };
 };

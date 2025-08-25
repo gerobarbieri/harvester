@@ -1,7 +1,8 @@
-import { collection, query, where, getDocs, orderBy, limit } from "firebase/firestore";
+import { collection, query, where, getDocs, orderBy, limit, Timestamp } from "firebase/firestore";
 import { db } from "../firebase/firebase";
 import { chunkArray } from "../firebase/utils";
-import type { CampaignField } from "../types";
+import type { CampaignField, User } from "../types";
+import { createSecurityQuery } from "../firebase/queryBuilder";
 
 interface PrimingMetrics {
     totalQueries: number;
@@ -17,27 +18,44 @@ class PrimingService {
         totalQueries: 0, totalDocuments: 0, duration: 0,
         stage: 'idle', errors: [], timings: {}
     };
+    private user: User | null = null;
 
-    async prime(organizationId: string, userRole: string, userId: string): Promise<PrimingMetrics> {
+    async prime(user: User): Promise<PrimingMetrics> {
         const startTime = Date.now();
+        this.user = user;
         console.time("Priming");
-        console.log(`🌍 Iniciando priming optimizado para rol: ${userRole}`);
+        console.log(`🌍 Iniciando priming optimizado para rol: ${user.role}`);
         this.resetMetrics();
 
         try {
-            // --- ETAPA 1: Carga de datos base (no dependen de nada) ---
+            const lastSyncItem = localStorage.getItem('lastSync');
+            const lastSyncTimestamp = lastSyncItem ? Timestamp.fromDate(new Date(lastSyncItem)) : null;
+
+            if (lastSyncTimestamp) {
+                console.log(`🔄 Sincronización incremental desde: ${lastSyncTimestamp.toDate().toLocaleString()}`);
+            } else {
+                console.log('🔄 Realizando sincronización completa inicial.');
+            }
+
             const stage1Start = Date.now();
+            const baseSecurityConstraints = createSecurityQuery(this.user).build();
+            let incrementalConstraints = [...baseSecurityConstraints];
+            if (lastSyncTimestamp) {
+                incrementalConstraints.push(where('updated_at', '>', lastSyncTimestamp));
+            }
+
             const [
                 activeCampaignSnap, _cropsSnap, _harvestersSnap,
-                _destinationsSnap, _usersSnap, activeSiloBagsSnap
+                _destinationsSnap, _usersSnap, activeSiloBagsSnap,
+                activeLogisticsSnap
             ] = await Promise.all([
-                this.queryWithMetrics(() => getDocs(query(collection(db, 'campaigns'), where('organization_id', '==', organizationId), where('active', '==', true), limit(1))), '1. Campaña Activa'),
-                this.queryWithMetrics(() => getDocs(query(collection(db, 'crops'), where('organization_id', '==', organizationId))), '1. Catálogo: Cultivos'),
-                this.queryWithMetrics(() => getDocs(query(collection(db, 'harvesters'), where('organization_id', '==', organizationId))), '1. Catálogo: Cosecheros'),
-                this.queryWithMetrics(() => getDocs(query(collection(db, 'destinations'), where('organization_id', '==', organizationId))), '1. Catálogo: Destinos'),
-                this.queryWithMetrics(() => getDocs(query(collection(db, 'users'), where('organization_id', '==', organizationId))), '1. Catálogo: Usuarios'),
-                this.queryWithMetrics(() => getDocs(query(collection(db, 'silo_bags'), where('organization_id', '==', organizationId), where('status', '==', 'active'), orderBy('created_at', 'desc'), limit(50))), '1. Silobolsas Activos'),
-                this.queryWithMetrics(() => getDocs(query(collection(db, 'logistics'), where('organization_id', '==', organizationId), where('status', 'in', ['in-route-to-field', 'loading']), orderBy('date', 'desc'), limit(50))), '1. Logística Activa'),
+                this.queryWithMetrics(() => getDocs(query(collection(db, 'campaigns'), ...baseSecurityConstraints, where('active', '==', true), limit(1))), '1. Campaña Activa'),
+                this.queryWithMetrics(() => getDocs(query(collection(db, 'crops'), ...incrementalConstraints)), '1. Catálogo: Cultivos'),
+                this.queryWithMetrics(() => getDocs(query(collection(db, 'harvesters'), ...incrementalConstraints)), '1. Catálogo: Cosecheros'),
+                this.queryWithMetrics(() => getDocs(query(collection(db, 'destinations'), ...incrementalConstraints)), '1. Catálogo: Destinos'),
+                this.queryWithMetrics(() => getDocs(query(collection(db, 'users'), ...incrementalConstraints)), '1. Catálogo: Usuarios'),
+                this.queryWithMetrics(() => getDocs(query(collection(db, 'silo_bags'), ...baseSecurityConstraints, where('status', '==', 'active'), orderBy('date', 'desc'), limit(50))), '1. Silobolsas Activos'),
+                this.queryWithMetrics(() => getDocs(query(collection(db, 'logistics'), ...baseSecurityConstraints, where('status', 'in', ['in-route-to-field', 'loading']), orderBy('date', 'desc'), limit(50))), '1. Logística Activa'),
             ]);
             this.metrics.timings['stage1_base'] = Date.now() - stage1Start;
 
@@ -48,30 +66,31 @@ class PrimingService {
                 return this.metrics;
             }
 
-            // --- ETAPA 2: Carga de datos dependientes de la campaña (Campos) ---
             const stage2Start = Date.now();
-            const campaignFieldsSnap = await this.loadCampaignFields(organizationId, campaign.id, userRole, userId);
+            const campaignFieldsSnap = await this.loadCampaignFields(campaign.id, lastSyncTimestamp);
             const relevantFieldIds = campaignFieldsSnap.docs.map((doc: any) => (doc.data() as CampaignField).field.id);
-            console.log(`🔄 Encontrados ${relevantFieldIds.length} campos para la campaña activa.`);
             this.metrics.timings['stage2_campaign_fields'] = Date.now() - stage2Start;
 
-            // --- ETAPA 3: Carga de datos dependientes de los campos (Lotes y Sesiones) ---
             const stage3Start = Date.now();
-            const [_plotsSnap, allSessionsSnap] = await Promise.all([
-                this.loadPlots(organizationId, relevantFieldIds),
-                this.loadSessionsByFields(organizationId, campaign.id, relevantFieldIds)
+            await Promise.all([
+                this.loadPlots(relevantFieldIds, lastSyncTimestamp),
+                this.loadSessionsByFields(campaign.id, relevantFieldIds, lastSyncTimestamp)
             ]);
             this.metrics.timings['stage3_plots_and_sessions'] = Date.now() - stage3Start;
 
-            // --- ETAPA 4: Carga de subcolecciones críticas ---
-            const stage4Start = Date.now();
+            const allSessionsSnap = await this.loadSessionsByFields(campaign.id, relevantFieldIds, null);
             const allSessions = allSessionsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-            await this.loadCriticalSubcollections(organizationId, allSessions, activeSiloBagsSnap);
+
+            const stage4Start = Date.now();
+            await this.loadCriticalSubcollections(allSessions, activeSiloBagsSnap);
             this.metrics.timings['stage4_subcollections'] = Date.now() - stage4Start;
 
             this.finishMetrics(startTime);
             console.timeEnd("Priming");
             console.log(`✅ Priming finalizado: ${this.metrics.totalQueries} queries, ${this.metrics.totalDocuments} docs en ${this.metrics.duration}ms`);
+
+            localStorage.setItem('lastSync', new Date().toISOString());
+
             return this.metrics;
 
         } catch (error: any) {
@@ -83,56 +102,71 @@ class PrimingService {
         }
     }
 
-    private async loadCampaignFields(organizationId: string, campaignId: string, userRole: string, userId: string) {
-        if (userRole === 'admin' || userRole === 'owner') {
-            return this.queryWithMetrics(() => getDocs(query(collection(db, 'campaign_fields'), where('organization_id', '==', organizationId), where('campaign.id', '==', campaignId))), '2a. Campos de Campaña (Admin)');
+    private async loadCampaignFields(campaignId: string, lastSync: Timestamp | null) {
+        const securityConstraints = createSecurityQuery(this.user)
+            .withFieldAccess('field.id')
+            .build();
+
+        let finalConstraints = [...securityConstraints, where('campaign.id', '==', campaignId)];
+        if (lastSync) {
+            finalConstraints.push(where('updated_at', '>', lastSync));
         }
 
-        const [assignedSnap, unassignedSnap] = await Promise.all([
-            this.queryWithMetrics(() => getDocs(query(collection(db, 'campaign_fields'), where('organization_id', '==', organizationId), where('campaign.id', '==', campaignId), where('responsible_uids', 'array-contains', userId))), '2a. Campos Asignados (Manager)'),
-            this.queryWithMetrics(() => getDocs(query(collection(db, 'campaign_fields'), where('organization_id', '==', organizationId), where('campaign.id', '==', campaignId), where('responsible_uids', '==', []))), '2a. Campos sin Asignar (Manager)')
-        ]);
-
-        const docsMap = new Map();
-        assignedSnap.docs.forEach((doc: any) => docsMap.set(doc.id, doc));
-        unassignedSnap.docs.forEach((doc: any) => docsMap.set(doc.id, doc));
-        const allDocs = Array.from(docsMap.values());
-
-        return { docs: allDocs };
+        const finalQuery = query(collection(db, 'campaign_fields'), ...finalConstraints);
+        return this.queryWithMetrics(() => getDocs(finalQuery), '2. Campos de Campaña');
     }
 
-    private async loadPlots(organizationId: string, fieldIds: string[]) {
+    private async loadPlots(fieldIds: string[], lastSync: Timestamp | null) {
         if (fieldIds.length === 0) return { docs: [] };
+
+        const baseConstraints = createSecurityQuery(this.user).build();
+        if (lastSync) {
+            baseConstraints.push(where('updated_at', '>', lastSync));
+        }
+
         const fieldChunks = chunkArray(fieldIds, 30);
         const plotPromises = fieldChunks.map(chunk =>
-            this.queryWithMetrics(() => getDocs(query(collection(db, 'plots'), where('organization_id', '==', organizationId), where('field.id', 'in', chunk))), `3a. Lotes (chunk de ${chunk.length})`)
+            this.queryWithMetrics(() => getDocs(query(collection(db, 'plots'), ...baseConstraints, where('field.id', 'in', chunk))), `3a. Lotes (chunk de ${chunk.length})`)
         );
         const results = await Promise.all(plotPromises);
         return { docs: results.flatMap(snap => snap.docs) };
     }
 
-    private async loadSessionsByFields(organizationId: string, campaignId: string, fieldIds: string[]) {
+    private async loadSessionsByFields(campaignId: string, fieldIds: string[], lastSync: Timestamp | null) {
         if (fieldIds.length === 0) return { docs: [] };
+
+        const baseConstraints = createSecurityQuery(this.user).build();
+        if (lastSync) {
+            baseConstraints.push(where('updated_at', '>', lastSync));
+        }
+
         const fieldChunks = chunkArray(fieldIds, 30);
-        const sessionPromises = fieldChunks.map(chunk =>
-            this.queryWithMetrics(() => getDocs(query(collection(db, 'harvest_sessions'), where('organization_id', '==', organizationId), where('campaign.id', '==', campaignId), where('status', 'in', ['pending', 'in-progress']), where('field.id', 'in', chunk))), `3b. Sesiones (chunk de ${chunk.length})`)
-        );
+        const sessionPromises = fieldChunks.map(chunk => {
+            const finalConstraints = [
+                ...baseConstraints,
+                where('campaign.id', '==', campaignId),
+                where('status', 'in', ['pending', 'in-progress']),
+                where('field.id', 'in', chunk)
+            ];
+            return this.queryWithMetrics(() => getDocs(query(collection(db, 'harvest_sessions'), ...finalConstraints)), `3b. Sesiones (chunk de ${chunk.length})`);
+        });
         const results = await Promise.all(sessionPromises);
         return { docs: results.flatMap(snap => snap.docs) };
     }
 
-    private async loadCriticalSubcollections(organizationId: string, sessions: any[], siloBagsSnap: any) {
+    private async loadCriticalSubcollections(sessions: any[], siloBagsSnap: any) {
         if (sessions.length === 0 && siloBagsSnap.docs.length === 0) return;
 
-        const recentSessions = sessions.sort((a, b) => b.date.toMillis() - a.date.toMillis()).slice(0, 10);
+        const baseConstraints = createSecurityQuery(this.user).build();
+        const recentSessions = sessions.sort((a, b) => b.date.toMillis() - a.date.toMillis());
 
         const registerPromises = recentSessions.map(session =>
-            this.queryWithMetrics(() => getDocs(query(collection(db, 'harvest_sessions', session.id, 'registers'), where('organization_id', '==', organizationId), orderBy('date', 'desc'), limit(50))), `4. Registros de Sesión ${session.plot.name}`)
+            this.queryWithMetrics(() => getDocs(query(collection(db, 'harvest_sessions', session.id, 'registers'), ...baseConstraints, orderBy('date', 'desc'), limit(50))), `4. Registros de Sesión ${session.plot.name}`)
                 .catch(() => ({ docs: [] }))
         );
 
         const movementPromises = siloBagsSnap.docs.map((siloDoc: any) =>
-            this.queryWithMetrics(() => getDocs(query(collection(db, 'silo_bags', siloDoc.id, 'movements'), where('organization_id', '==', organizationId), orderBy('date', 'desc'), limit(20))), `4. Movimientos de Silo ${siloDoc.data().name}`)
+            this.queryWithMetrics(() => getDocs(query(collection(db, 'silo_bags', siloDoc.id, 'movements'), ...baseConstraints, orderBy('date', 'desc'), limit(20))), `4. Movimientos de Silo ${siloDoc.data().name}`)
                 .catch(() => ({ docs: [] }))
         );
 
@@ -158,12 +192,7 @@ class PrimingService {
     private finishMetrics(startTime: number) { this.metrics.duration = Date.now() - startTime; this.metrics.stage = 'completed'; }
 }
 
-export const priming = new PrimingService();
-
-export const primeOfflineCache = (
-    organizationId: string,
-    userRole: string,
-    userId: string
-): Promise<PrimingMetrics> => {
-    return priming.prime(organizationId, userRole, userId);
+export const primeOfflineCache = (user: User): Promise<PrimingMetrics> => {
+    const priming = new PrimingService();
+    return priming.prime(user);
 };

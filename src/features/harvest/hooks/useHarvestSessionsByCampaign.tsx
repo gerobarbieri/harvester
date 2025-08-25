@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import type { HarvestSession } from '../../../shared/types';
-import { collection, query, where, onSnapshot, QueryConstraint } from 'firebase/firestore';
+import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { db } from '../../../shared/firebase/firebase';
 import useAuth from '../../../shared/context/auth/AuthContext';
+import { createSecurityQuery } from '../../../shared/firebase/queryBuilder';
 
 export const useHarvestSessionsByCampaign = (campaignId: string) => {
     const { currentUser, loading: authLoading } = useAuth();
@@ -16,28 +17,25 @@ export const useHarvestSessionsByCampaign = (campaignId: string) => {
             return;
         }
 
-        // 3. Construimos la consulta dinámicamente
-        const constraints: QueryConstraint[] = [
-            where('organization_id', '==', currentUser.organizationId),
+        const securityConstraints = createSecurityQuery(currentUser)
+            .withFieldAccess('field.id')
+            .build();
+
+        const q = query(
+            collection(db, 'harvest_sessions'), 
+            ...securityConstraints,
             where('campaign.id', '==', campaignId)
-        ];
-
-        const q = query(collection(db, 'harvest_sessions'), ...constraints);
-
-        const unsubscribe = onSnapshot(q,
-            (snapshot) => {
-                setSessions(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as HarvestSession)));
-                if (loading) setLoading(false);
-            },
-            (err) => {
-                setError(err.message);
-                setLoading(false);
-            }
         );
-        return () => {
-            unsubscribe();
-        };
-        // 4. Añadimos los filtros al array de dependencias
+
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+            setSessions(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as HarvestSession)));
+            if (loading) setLoading(false);
+        }, (err) => {
+            setError(err.message);
+            setLoading(false);
+        });
+
+        return () => unsubscribe();
     }, [campaignId, currentUser, authLoading]);
 
     return { sessions, loading, error };

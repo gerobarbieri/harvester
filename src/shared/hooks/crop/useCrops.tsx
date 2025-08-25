@@ -1,11 +1,9 @@
-// src/hooks/useCrops.ts
-
 import { useState, useEffect } from 'react';
 import useAuth from '../../context/auth/AuthContext';
 import type { Crop } from '../../types';
-// Agregamos 'onSnapshot' al import
-import { collection, onSnapshot, query, where } from 'firebase/firestore';
+import { collection, onSnapshot, query } from 'firebase/firestore';
 import { db } from '../../firebase/firebase';
+import { createSecurityQuery } from '../../firebase/queryBuilder';
 
 export const useCrops = () => {
     const { currentUser, loading: authLoading } = useAuth();
@@ -14,32 +12,32 @@ export const useCrops = () => {
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
-        if (authLoading || !currentUser) return;
+        if (authLoading || !currentUser) {
+            if (!authLoading) setLoading(false);
+            return;
+        }
+
+        const securityConstraints = createSecurityQuery(currentUser).build();
 
         const cropsQuery = query(
             collection(db, 'crops'),
-            where('organization_id', '==', currentUser.organizationId)
+            ...securityConstraints
         );
 
-        const unsubscribe = onSnapshot(cropsQuery,
-            (snapshot) => {
-                const cropData = snapshot.docs.map(doc => ({
-                    id: doc.id,
-                    ...(doc.data() as Omit<Crop, 'id'>)
-                }));
-
-                setCrops(cropData);
-                setLoading(false);
-            },
-            (err) => {
-                console.error("Error en la suscripción a cultivos:", err);
-                setError(err.message);
-                setLoading(false);
-            }
-        );
+        const unsubscribe = onSnapshot(cropsQuery, (snapshot) => {
+            const cropData = snapshot.docs.map(doc => ({
+                id: doc.id,
+                ...(doc.data() as Omit<Crop, 'id'>)
+            }));
+            setCrops(cropData);
+            setLoading(false);
+        }, (err) => {
+            console.error("Error en la suscripción a cultivos:", err);
+            setError(err.message);
+            setLoading(false);
+        });
 
         return () => unsubscribe();
-
     }, [currentUser, authLoading]);
 
     return { crops, loading, error };
